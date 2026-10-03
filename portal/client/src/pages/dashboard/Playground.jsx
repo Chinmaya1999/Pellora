@@ -145,14 +145,14 @@ export default function Playground() {
 
   // One photo -> freeze it, release the camera, analyse once.
   const finish = async (blob, mirror) => {
-    voice.shutter(); voice.speak("Photo captured. Analyzing your skin.", { force: true });
+    voice.speak("Photo captured. Analyzing your skin.", { force: true });
     stopCamera();
     setShot((old) => { if (old) URL.revokeObjectURL(old.url); return { url: URL.createObjectURL(blob), mirror }; });
     await scan(blob);
   };
 
   const start = async () => {
-    setErr(""); setOut(null); voice.unlock();
+    setErr(""); setOut(null);
     setShot((old) => { if (old) URL.revokeObjectURL(old.url); return null; });
     try {
       const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } } });
@@ -185,7 +185,7 @@ export default function Playground() {
           setHint(d.message || "");
           if (d.ready) {
             ok += 1; same = { text: "", n: 0 };
-            if (ok === 1) { voice.ready(); voice.speak("Perfect. Hold still.", { force: true }); }
+            if (ok === 1) voice.speak("Perfect. Hold still.", { force: true });
             if (ok >= 2) { alive = false; await finish(await grab(1920), true); return; }
           } else {
             ok = 0;
@@ -199,7 +199,7 @@ export default function Playground() {
     return () => { alive = false; };
   }, [on]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const toggleVoice = (v) => { setTalk(v); voice.setEnabled(v); if (v) { voice.unlock(); voice.speak("Voice guidance is on.", { force: true }); } };
+  const toggleVoice = (v) => { setTalk(v); voice.setEnabled(v); if (v) voice.speak("Voice guidance is on.", { force: true }); };
 
   const showStill = !!shot;
   const failing = CHECKLIST.find(([, , codes]) => codes.includes(live.code))?.[0];
@@ -241,7 +241,7 @@ export default function Playground() {
             <label className="btn ghost">Upload photo<input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ""; if (f) finish(f, false); }} /></label>
           </div>
           <label className="opt"><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto-capture when everything is perfect</label>
-          {voice.supported && <label className="opt"><input type="checkbox" checked={talk} onChange={(e) => toggleVoice(e.target.checked)} /> Voice guidance &amp; sounds</label>}
+          {voice.supported && <label className="opt"><input type="checkbox" checked={talk} onChange={(e) => toggleVoice(e.target.checked)} /> Voice guidance</label>}
           <label className="opt"><input type="checkbox" checked={ai} onChange={(e) => setAi(e.target.checked)} disabled={user.plan !== "growth" && user.plan !== "enterprise"} /> AI second opinion {user.plan === "growth" || user.plan === "enterprise" ? "" : "(Growth plan)"}</label>
           {!on && !showStill && (
             <ul className="tips2">
