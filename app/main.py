@@ -73,6 +73,7 @@ async def analyze(
     use_ai: bool = Form(False),
     overlay: bool = Form(False),
     overlays: bool = Form(True),   # per-metric mask images are returned unless overlays=false
+    metrics: str = Form(""),       # optional comma list: only these parameters (set by the portal per plan)
     x_api_key: str | None = Header(None),
 ):
     _auth(x_api_key)
@@ -85,7 +86,7 @@ async def analyze(
 
     t0 = time.time()
     try:
-        result = await run_in_threadpool(analyzer.analyze, img, overlay, overlays)
+        result = await run_in_threadpool(analyzer.analyze, img, overlay, overlays, [m.strip() for m in metrics.split(",") if m.strip()] or None)
     except AnalysisError as e:
         return JSONResponse(status_code=422, content={"error": e.code, "message": e.message})
     result["engine"] = "cv"

@@ -597,7 +597,8 @@ class SkinAnalyzer:
         return out("ready", "Perfect. Hold still", ready=True, sharpness=round(sharp, 1), brightness=round(mean_l), glasses_score=round(gscore, 2))
 
     # ------------------------------------------------------------------- run
-    def analyze(self, img: np.ndarray, want_overlay: bool = False, want_overlays: bool = False) -> dict:
+    def analyze(self, img: np.ndarray, want_overlay: bool = False, want_overlays: bool = False, only: list[str] | None = None) -> dict:
+        keys = [m for m in METRICS if only is None or m in only] or list(METRICS)  # plans can include fewer parameters
         if img is None or img.size == 0:
             raise AnalysisError("bad_image", "Could not read the image.")
         h, w = img.shape[:2]
@@ -611,7 +612,7 @@ class SkinAnalyzer:
         feats = self._features(face)
 
         results = {}
-        for m in METRICS:
+        for m in keys:
             concern = self._to_score(m, feats[m])
             conf = BASE_RELIABILITY[m] * quality["factor"]
             if m == "pores" and face.orig_ipd < 150:
@@ -627,7 +628,7 @@ class SkinAnalyzer:
                 "rating": self.rating(100 - concern),
             }
         overall = round(np.average([r["score"] for r in results.values()],
-                                   weights=[BASE_RELIABILITY[m] for m in METRICS]))
+                                   weights=[BASE_RELIABILITY[m] for m in keys]))
         out = {"overall_score": int(overall), "metrics": results, "quality": {
             k: v for k, v in quality.items() if k != "factor"},
             "debug": {k: round(float(v), 3) for k, v in feats.items() if k.startswith("_")}}
@@ -635,7 +636,7 @@ class SkinAnalyzer:
             out["_overlay"] = self._overlay(face)
         if want_overlays:  # per-metric masks drawn on the original photo
             from .overlays import render_all
-            for k, b64 in render_all(self, face, img).items():
+            for k, b64 in render_all(self, face, img, keys).items():
                 results[k]["overlay_jpeg_base64"] = b64
         return out
 

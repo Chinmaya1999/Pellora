@@ -4,7 +4,7 @@ import { useAuth } from "../auth";
 import { Logo } from "../components/Layout";
 import { BRAND } from "../brand";
 
-const POINTS = ["10 free credits every day (50 / month)", "15 skin metrics with visual overlays", "Your API key in 30 seconds"];
+const POINTS = ["150 free scans every month, no card", "15 skin metrics with visual overlays", "Your API key in 30 seconds"];
 
 export default function AuthPage({ mode }) {
   const isSignup = mode === "signup";

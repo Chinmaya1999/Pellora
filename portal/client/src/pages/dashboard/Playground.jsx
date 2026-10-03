@@ -206,7 +206,7 @@ export default function Playground() {
   return (
     <>
       <h1>Playground</h1>
-      <p className="muted">Try the API with your camera. Each scan uses 1 credit from your daily and monthly allowance ({user.planName} plan). See remaining credits on the Overview page.</p>
+      <p className="muted">Try the API with your camera. Each scan uses 1 of your daily and monthly scans ({user.planName} plan). See what's left on the Overview page.</p>
       <div className="pg">
         <div className="card pg-cam">
           <div className="stage">

@@ -33,21 +33,23 @@ export async function metered(req, res) {
   const taken = await consume(user._id, plan, cost);
   if (!taken.ok) {
     res.set("Retry-After", String(Math.ceil(((taken.reason === "daily" ? nextDayReset() : nextMonthReset()) - Date.now()) / 1000)));
-    return taken.reason === "daily"
-      ? reject(429, "daily_limit_exceeded", `Daily limit of ${plan.dailyCredits} credits reached on the ${plan.name} plan. It resets at midnight (IST), or upgrade for more.`)
-      : reject(402, "quota_exceeded", `Monthly limit of ${plan.monthlyCredits} credits reached on the ${plan.name} plan. Upgrade to continue.`);
+    if (taken.reason === "daily") {
+      return reject(429, "daily_limit_exceeded", `Daily limit of ${plan.dailyCredits} scans reached on the ${plan.name} plan. It resets at midnight (IST), or upgrade for more.`);
+    }
+    return taken.overageAvailable
+      ? reject(402, "wallet_empty", `Your ${plan.monthlyCredits} monthly scans are used up. Top up your overage wallet in the dashboard to keep scanning (₹${(taken.unit / 100).toFixed(2)} per scan incl. GST).`)
+      : reject(402, "quota_exceeded", `Monthly limit of ${plan.monthlyCredits} scans reached on the ${plan.name} plan. Upgrade to continue.`);
   }
-  if (plan.dailyCredits != null) {
-    res.set("X-Credits-Cost", String(cost));
-    res.set("X-Credits-Daily-Remaining", String(Math.max(0, plan.dailyCredits - taken.day)));
-    res.set("X-Credits-Monthly-Remaining", String(Math.max(0, plan.monthlyCredits - taken.month)));
-  }
-  const failed = (httpStatus, errorCode) => { refund(user._id, cost); done(httpStatus, "failed", { errorCode, credits: 0 }); };
+  res.set("X-Credits-Cost", String(cost));
+  if (plan.dailyCredits != null) res.set("X-Credits-Daily-Remaining", String(Math.max(0, plan.dailyCredits - taken.day)));
+  if (plan.monthlyCredits != null) res.set("X-Credits-Monthly-Remaining", String(Math.max(0, plan.monthlyCredits - taken.month)));
+  if (taken.overage) { res.set("X-Overage-Charge-Paise", String(taken.charged)); res.set("X-Wallet-Balance-Paise", String(taken.wallet)); }
+  const failed = (httpStatus, errorCode) => { refund(user._id, cost, taken.charged || 0); done(httpStatus, "failed", { errorCode, credits: 0 }); };
 
   try {
     const r = await fetch(`${config.engineUrl}/v1/analyze`, {
       method: "POST", headers: headers(),
-      body: toForm(file, { use_ai: wantsAi, overlay: String(req.body.overlay) === "true", overlays: wantsOverlays }),
+      body: toForm(file, { use_ai: wantsAi, overlay: String(req.body.overlay) === "true", overlays: wantsOverlays, metrics: plan.metrics.join(",") }),
       signal: AbortSignal.timeout(60_000),
     });
     const body = await r.json().catch(() => ({}));
@@ -56,7 +58,7 @@ export async function metered(req, res) {
       return res.status(r.status >= 500 ? 502 : r.status).json(
         r.status >= 500 ? { error: "engine_error", message: "Analysis engine error. Please retry." } : body);
     }
-    done(200, "success", { credits: cost });
+    done(200, "success", { credits: cost, overage: !!taken.overage, chargedPaise: taken.charged || 0 });
     res.json(body);
   } catch {
     failed(502, "engine_unavailable");

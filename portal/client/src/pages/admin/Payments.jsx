@@ -1,34 +1,34 @@
 import { useState } from "react";
 import { api } from "../../api";
-import { useApi, useDebounced, Pager, Chip, money, dt } from "../../components/admin";
+import { useApi, useDebounced, useToast, Pager, Chip, PageHeader, Segmented, Empty, money, dt } from "../../components/admin";
 
 export default function Payments() {
-  const [q, setQ] = useState(""); const [status, setStatus] = useState(""); const [page, setPage] = useState(1); const [msg, setMsg] = useState(null);
+  const toast = useToast();
+  const [q, setQ] = useState(""); const [seg, setSeg] = useState("paid"); const [page, setPage] = useState(1);
   const dq = useDebounced(q);
-  const { data, err, reload } = useApi(`/admin/payments?${new URLSearchParams({ page, limit: 25, ...(dq && { q: dq }), ...(status && { status }) })}`);
+  const { data, err, reload } = useApi(`/admin/payments?${new URLSearchParams({ page, limit: 25, ...(dq && { q: dq }), ...(seg !== "all" && { status: seg }) })}`);
   const recheck = async (p) => {
-    setMsg(null);
-    try { const r = await api(`/admin/payments/${p.id}/recheck`, { method: "POST", body: {} }); setMsg({ ok: r.status === "PAID", text: `${p.orderId}: ${r.status === "PAID" ? "paid - plan activated" : `gateway says ${r.status}`}` }); reload(); }
-    catch (e) { setMsg({ ok: false, text: e.message }); }
+    try { const r = await api(`/admin/payments/${p.id}/recheck`, { method: "POST", body: {} }); r.status === "PAID" ? toast.ok("Paid. Activated for the customer.") : toast.err(`Gateway says: ${r.status}`); reload(); }
+    catch (e) { toast.err(e.message); }
   };
   return (
     <>
-      <h1>Payments</h1>
-      <p className="muted">Orders are “created” until the customer pays. If someone paid but their plan did not activate, use <b>Re-check</b>: it asks Cashfree and activates the plan.</p>
-      <div className="card toolbar">
-        <input placeholder="Search customer, order id or payment id…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
-        <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}><option value="">All</option><option value="paid">Paid</option><option value="created">Unpaid / abandoned</option></select>
+      <PageHeader title="Payments" sub="Plan purchases and wallet top-ups. If someone paid but didn't get their plan, press Re-check on the unpaid order: it asks Cashfree and activates it." />
+      <div className="toolbar2">
+        <div className="searchbox"><input placeholder="Search customer, order id or payment id…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} /></div>
+        <Segmented value={seg} onChange={(v) => { setSeg(v); setPage(1); }} options={[["paid", "Paid"], ["created", "Unpaid"], ["all", "All"]]} />
       </div>
-      {msg && <p className={msg.ok ? "ok" : "err"}>{msg.text}</p>}{err && <p className="err">{err}</p>}
-      <div className="card tscroll">
-        <table className="table"><thead><tr><th>Created</th><th>Customer</th><th>Plan</th><th>Amount</th><th>Status</th><th>Reference</th><th /></tr></thead>
+      {err && <p className="err">{err}</p>}
+      <div className="card tscroll flush">
+        <table className="table"><thead><tr><th>When</th><th>Customer</th><th>For</th><th>Amount</th><th>GST</th><th>Status</th><th>Reference</th><th /></tr></thead>
           <tbody>{(data?.payments || []).map((p) => (
-            <tr key={p.id}><td>{dt(p.createdAt)}</td><td>{p.userName}<br /><span className="muted small">{p.userEmail}</span></td><td>{p.plan}</td><td><b>{money(p.amount)}</b></td>
-              <td><Chip tone={p.status === "paid" ? "good" : "mod"}>{p.status}</Chip> {p.manual && <Chip tone="good">manual</Chip>} {p.mock && <Chip>test</Chip>}</td>
+            <tr key={p.id}><td>{dt(p.paidAt || p.createdAt)}</td><td><b>{p.userName}</b><br /><span className="muted small">{p.userEmail}</span></td>
+              <td>{p.kind === "topup" ? "Wallet top-up" : p.plan}</td><td><b>{money(p.amount, 2)}</b></td><td className="muted">{p.gst ? money(p.gst, 2) : "—"}</td>
+              <td><Chip tone={p.status === "paid" ? "good" : "mod"}>{p.status === "paid" ? "paid" : "unpaid"}</Chip> {p.manual && <Chip tone="good">manual</Chip>} {p.mock && <Chip>test</Chip>}</td>
               <td className="small"><code>{p.paymentId || p.orderId}</code>{p.note && <><br /><span className="muted">{p.note}</span></>}</td>
               <td>{p.status === "created" && !p.manual && !p.mock && <button className="link" onClick={() => recheck(p)}>Re-check</button>}</td></tr>))}
-            {data && data.payments.length === 0 && <tr><td colSpan="7" className="muted">No payments.</td></tr>}</tbody></table>
-        {data && <Pager page={data.page} limit={data.limit} total={data.total} onPage={setPage} />}
+            {data && data.payments.length === 0 && <tr><td colSpan="8"><Empty icon="card" title="No payments here" /></td></tr>}</tbody></table>
+        {data && data.total > 0 && <Pager page={data.page} limit={data.limit} total={data.total} onPage={setPage} />}
       </div>
     </>
   );

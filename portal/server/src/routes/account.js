@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
 import { User, ApiKey, UsageLog } from "../models/index.js";
 import { setSession, clearSession, requireAuth, generateKey } from "../middleware/auth.js";
-import { effectivePlan } from "../plans.js";
+import { effectivePlan, overageUnitPaise } from "../plans.js";
 import { usedNow, nextDayReset, nextMonthReset, dailySeries } from "../usage.js";
 import { creditCost } from "../plans.js";
 
@@ -66,7 +66,8 @@ r.get("/usage", requireAuth, async (req, res) => {
   const plan = effectivePlan(req.user);
   const used = await usedNow(req.user._id);
   res.json({
-    plan: plan.id, planName: plan.name, costs: creditCost(),
+    plan: plan.id, planName: plan.name, costs: creditCost(), rpm: plan.rpm, parameters: plan.metrics.length, ai: plan.ai,
+    wallet: { balance: (req.user.walletPaise || 0) / 100, ratePerScan: overageUnitPaise(plan) == null ? null : overageUnitPaise(plan) / 100, enabled: overageUnitPaise(plan) != null },
     day: { used: used.day, limit: plan.dailyCredits, remaining: left(plan.dailyCredits, used.day), resetsAt: nextDayReset() },
     month: { used: used.month, limit: plan.monthlyCredits, remaining: left(plan.monthlyCredits, used.month), resetsAt: nextMonthReset() },
     daily: await dailySeries(req.user._id, 30),
@@ -84,7 +85,7 @@ r.get("/usage/history", requireAuth, async (req, res) => {
   const more = rows.length > limit;
   res.json({
     rows: rows.slice(0, limit).map((x) => ({ id: x.id, at: x.at, source: x.source, keyName: x.keyName, status: x.status,
-      httpStatus: x.httpStatus, errorCode: x.errorCode, credits: x.credits, ai: x.ai, overlays: x.overlays, ms: x.ms })),
+      httpStatus: x.httpStatus, errorCode: x.errorCode, credits: x.credits, overage: x.overage, chargedPaise: x.chargedPaise, ai: x.ai, overlays: x.overlays, ms: x.ms })),
     next: more ? rows[limit - 1].at : null,
   });
 });

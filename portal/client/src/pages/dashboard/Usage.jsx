@@ -9,10 +9,10 @@ function Bars({ data }) {
   const max = Math.max(5, ...data.map((d) => d.count));
   const w = 600, h = 120, bw = w / data.length;
   return (
-    <svg viewBox={`0 0 ${w} ${h + 18}`} className="chart" role="img" aria-label="Credits used per day">
+    <svg viewBox={`0 0 ${w} ${h + 18}`} className="chart" role="img" aria-label="Scans per day">
       {data.map((d, i) => {
         const bh = (d.count / max) * h;
-        return <rect key={d.day} x={i * bw + 2} y={h - bh} width={bw - 4} height={Math.max(bh, d.count ? 2 : 0)} rx="2" className="bar-fill"><title>{d.day}: {d.count} credits</title></rect>;
+        return <rect key={d.day} x={i * bw + 2} y={h - bh} width={bw - 4} height={Math.max(bh, d.count ? 2 : 0)} rx="2" className="bar-fill"><title>{d.day}: {d.count} scans</title></rect>;
       })}
       <line x1="0" x2={w} y1={h} y2={h} className="axis" />
       <text x="0" y={h + 14} className="axis-t">{data[0].day.slice(5)}</text>
@@ -44,13 +44,13 @@ export default function Usage() {
   return (
     <>
       <h1>Usage history</h1>
-      <p className="muted">Every API and playground request, newest first. Credits reset daily and monthly at midnight (IST). History is kept for 90 days.</p>
+      <p className="muted">Every API and playground request, newest first. Daily scans reset at midnight (IST); monthly scans at the start of the month. History is kept for 90 days.</p>
       <div className="stats">
-        <Meter title="Credits today" w={u.day} />
-        <Meter title="Credits this month" w={u.month} />
-        <div className="card stat"><span className="muted small">Last 30 days</span><b>{month30.toLocaleString()}</b><span className="muted small">credits used</span></div>
+        <Meter title="Scans today" w={u.day} />
+        <Meter title="Scans this month" w={u.month} />
+        <div className="card stat"><span className="muted small">Last 30 days</span><b>{month30.toLocaleString()}</b><span className="muted small">scans used</span></div>
       </div>
-      <div className="card"><h3>Credits per day</h3><Bars data={u.daily} /></div>
+      <div className="card"><h3>Scans per day</h3><Bars data={u.daily} /></div>
 
       <div className="card">
         <div className="hist-head">
@@ -67,7 +67,7 @@ export default function Usage() {
         {rows.length === 0 && !busy ? <p className="muted">No requests yet. Make a call from the playground or your app.</p> : (
           <div className="tscroll">
             <table className="table">
-              <thead><tr><th>Time</th><th>Source</th><th>Key</th><th>Result</th><th>Credits</th><th>Details</th></tr></thead>
+              <thead><tr><th>Time</th><th>Source</th><th>Key</th><th>Result</th><th>Scans</th><th>Details</th></tr></thead>
               <tbody>{rows.map((r) => {
                 const [label, tone] = STATUS[r.status];
                 return (
@@ -78,7 +78,7 @@ export default function Usage() {
                     <td><span className={`rt ${tone}`}>{label}</span></td>
                     <td><b>{r.credits ? `−${r.credits}` : "0"}</b></td>
                     <td className="muted small">
-                      {[r.ai && "AI", r.overlays && "overlays", r.errorCode, r.httpStatus && `HTTP ${r.httpStatus}`, r.ms != null && `${r.ms} ms`].filter(Boolean).join(" · ")}
+                      {[r.ai && "AI", r.overage && `overage ₹${(r.chargedPaise / 100).toFixed(2)}`, r.overlays && "overlays", r.errorCode, r.httpStatus && `HTTP ${r.httpStatus}`, r.ms != null && `${r.ms} ms`].filter(Boolean).join(" · ")}
                     </td>
                   </tr>
                 );

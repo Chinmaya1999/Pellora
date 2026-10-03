@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { User, ApiKey, Usage, Daily, UsageLog, Payment, Plan, Setting, AdminLog } from "../models/index.js";
 import { requireAuth, requireAdmin, generateKey } from "../middleware/auth.js";
-import { loadConfig, allPlans, getPlan, getSettings, effectivePlan, publicPlan } from "../plans.js";
+import { loadConfig, allPlans, getPlan, getSettings, effectivePlan, publicPlan, METRIC_KEYS, METRIC_LABELS } from "../plans.js";
 import { dayOf, periodOf, dailySeries } from "../usage.js";
 import { settle } from "./billing.js";
 
@@ -29,18 +29,19 @@ const userRow = (u, usage = {}, keys = 0) => {
   return {
     id: u.id, name: u.name, email: u.email, phone: u.phone, company: u.company, role: u.role, disabled: !!u.disabled,
     plan: u.plan, effectivePlan: eff.id, planName: eff.name, planExpiresAt: u.planExpiresAt,
-    createdAt: u.createdAt, lastLoginAt: u.lastLoginAt, creditsToday: usage.day || 0, creditsMonth: usage.month || 0, keys,
+    dailyLimit: eff.dailyCredits, monthlyLimit: eff.monthlyCredits, walletPaise: u.walletPaise || 0, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt, creditsToday: usage.day || 0, creditsMonth: usage.month || 0, keys,
   };
 };
 
 // ------------------------------------------------------------------ overview
 r.get("/stats", async (req, res) => {
   const now = new Date(), since = new Date(Date.now() - 29 * 86400000), week = new Date(Date.now() - 7 * 86400000);
-  const [users, newWeek, paidNow, revenue, revDaily, scansToday, scansMonth, scansDaily, statuses, planDist, signups] = await Promise.all([
+  const soon = new Date(Date.now() + 7 * 86400000), dayAgo = new Date(Date.now() - 86400000);
+  const [users, newWeek, paidNow, revenue, revDaily, scansToday, scansMonth, scansDaily, statuses, planDist, signups, recentUsers, recentPays, unpaid, expiring, disabledN] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ createdAt: { $gte: week } }),
     User.countDocuments({ plan: { $ne: "free" }, planExpiresAt: { $gt: now } }),
-    Payment.aggregate([{ $match: { status: "paid", mock: false } }, { $group: { _id: null, total: { $sum: "$amountPaise" }, n: { $sum: 1 } } }]),
+    Payment.aggregate([{ $match: { status: "paid", mock: false } }, { $group: { _id: null, total: { $sum: "$amountPaise" }, gst: { $sum: "$gstPaise" }, n: { $sum: 1 } } }]),
     Payment.aggregate([{ $match: { status: "paid", mock: false, updatedAt: { $gte: since } } },
       { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$updatedAt", timezone: "+05:30" } }, amount: { $sum: "$amountPaise" } } }]),
     Daily.aggregate([{ $match: { day: dayOf() } }, { $group: { _id: null, c: { $sum: "$count" }, users: { $sum: 1 } } }]),
@@ -50,6 +51,11 @@ r.get("/stats", async (req, res) => {
     User.aggregate([{ $group: { _id: { $cond: [{ $or: [{ $eq: ["$plan", "free"] }, { $not: ["$planExpiresAt"] }, { $lt: ["$planExpiresAt", now] }] }, "free", "$plan"] }, n: { $sum: 1 } } }]),
     User.aggregate([{ $match: { createdAt: { $gte: since } } },
       { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } }, n: { $sum: 1 } } }]),
+    User.find().sort({ createdAt: -1 }).limit(6),
+    Payment.find({ status: "paid" }).sort({ updatedAt: -1 }).limit(6).populate("user", "email name"),
+    Payment.countDocuments({ status: "created", mock: false, manual: false, createdAt: { $gte: dayAgo } }),
+    User.countDocuments({ plan: { $ne: "free" }, planExpiresAt: { $gt: new Date(), $lt: soon } }),
+    User.countDocuments({ disabled: true }),
   ]);
   const series = (rows, key) => {
     const m = new Map(rows.map((x) => [x._id, x[key]]));
@@ -57,13 +63,16 @@ r.get("/stats", async (req, res) => {
   };
   res.json({
     users, newUsers7d: newWeek, paidUsers: paidNow,
-    revenueTotal: (revenue[0]?.total || 0) / 100, paymentsCount: revenue[0]?.n || 0,
+    revenueTotal: (revenue[0]?.total || 0) / 100, gstTotal: (revenue[0]?.gst || 0) / 100, paymentsCount: revenue[0]?.n || 0,
     revenue30d: revDaily.reduce((a, x) => a + x.amount, 0) / 100,
     creditsToday: scansToday[0]?.c || 0, activeToday: scansToday[0]?.users || 0, creditsMonth: scansMonth[0]?.c || 0,
     requests24h: Object.fromEntries(statuses.map((x) => [x._id, x.n])),
     plans: planDist.map((x) => ({ plan: x._id, name: getPlan(x._id)?.name || x._id, n: x.n })),
     creditsDaily: series(scansDaily, "c"), revenueDaily: series(revDaily, "amount").map((d) => ({ ...d, value: d.value / 100 })),
     signupsDaily: series(signups, "n"),
+    recentUsers: recentUsers.map((u) => ({ id: u.id, name: u.name, email: u.email, createdAt: u.createdAt, plan: effectivePlan(u).name })),
+    recentPayments: recentPays.map((p) => ({ id: p.id, userEmail: p.user?.email, userName: p.user?.name, amount: p.amountPaise / 100, kind: p.kind || "plan", plan: p.plan, manual: p.manual, at: p.updatedAt })),
+    alerts: { unpaidOrders24h: unpaid, expiringIn7d: expiring, disabled: disabledN },
   });
 });
 
@@ -75,6 +84,7 @@ r.get("/users", async (req, res) => {
   if (req.query.role === "admin" || req.query.role === "user") filter.role = req.query.role;
   if (req.query.status === "disabled") filter.disabled = true;
   if (req.query.plan === "free") ands.push({ $or: [{ plan: "free" }, { planExpiresAt: null }, { planExpiresAt: { $lt: now } }] });
+  else if (req.query.plan === "paid") ands.push({ plan: { $ne: "free" }, planExpiresAt: { $gt: now } });
   else if (req.query.plan) ands.push({ plan: String(req.query.plan), planExpiresAt: { $gt: now } });
   if (ands.length) filter.$and = ands;
 
@@ -101,7 +111,7 @@ r.get("/users/:id", async (req, res) => {
     user: userRow(u, { day: day?.count, month: month?.count }, keys.filter((k) => !k.revoked).length),
     keys: keys.map((k) => ({ id: k.id, name: k.name, masked: `${k.prefix}…${k.last4}`, revoked: k.revoked, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt })),
     logs: logs.map((x) => ({ id: x.id, at: x.at, source: x.source, keyName: x.keyName, status: x.status, httpStatus: x.httpStatus, errorCode: x.errorCode, credits: x.credits })),
-    payments: payments.map((p) => ({ id: p.id, orderId: p.orderId, plan: p.plan, amount: p.amountPaise / 100, status: p.status, manual: p.manual, mock: p.mock, paymentId: p.paymentId, note: p.note, at: p.updatedAt })),
+    payments: payments.map((p) => ({ id: p.id, orderId: p.orderId, kind: p.kind || "plan", plan: p.plan, amount: p.amountPaise / 100, status: p.status, manual: p.manual, mock: p.mock, paymentId: p.paymentId, note: p.note, at: p.updatedAt })),
     daily: series,
   });
 });
@@ -159,11 +169,25 @@ r.patch("/users/:id", async (req, res) => {
 
   // optional: record that the customer paid outside the gateway (UPI / bank transfer / cash)
   if (b.recordPayment && Number(b.recordPayment.amount) > 0 && u.plan !== "free") {
-    await Payment.create({ user: u._id, plan: u.plan, amountPaise: Math.round(Number(b.recordPayment.amount) * 100), status: "paid",
+    const total = Math.round(Number(b.recordPayment.amount) * 100);
+    const base = Math.round(total / (1 + getSettings().gstPercent / 100));
+    await Payment.create({ user: u._id, plan: u.plan, kind: "plan", amountPaise: total, basePaise: base, gstPaise: total - base, status: "paid",
       orderId: `manual_${crypto.randomUUID()}`, paymentId: "manual", manual: true, note: String(b.recordPayment.note || "").slice(0, 200) });
   }
   await audit(req, "user.update", u.email, { before, after: { plan: u.plan, planExpiresAt: u.planExpiresAt, role: u.role, disabled: u.disabled }, payment: !!b.recordPayment });
   res.json({ ok: true });
+});
+
+// Adjust a customer's overage wallet (+ credit / - debit), e.g. after a bank transfer or as goodwill
+r.post("/users/:id/wallet", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ message: "User not found." });
+  const delta = Math.round(Number(req.body?.amount) * 100);
+  if (!Number.isFinite(delta) || delta === 0) return res.status(400).json({ message: "Enter an amount in rupees (use a minus sign to deduct)." });
+  const upd = await User.findOneAndUpdate({ _id: u._id, walletPaise: { $gte: delta < 0 ? -delta : 0 } }, { $inc: { walletPaise: delta } }, { new: true });
+  if (!upd) return res.status(400).json({ message: "That would take the wallet below zero." });
+  await audit(req, "wallet.adjust", u.email, { amount: delta / 100, note: String(req.body?.note || "").slice(0, 200), balance: upd.walletPaise / 100 });
+  res.json({ balance: upd.walletPaise / 100 });
 });
 
 r.post("/users/:id/reset-password", async (req, res) => {
@@ -222,7 +246,7 @@ r.patch("/keys/:id", async (req, res) => {
 r.get("/plans", async (req, res) => {
   const counts = await User.aggregate([{ $group: { _id: "$plan", n: { $sum: 1 } } }]);
   const cm = new Map(counts.map((x) => [x._id, x.n]));
-  res.json({ plans: allPlans().map((p) => ({ ...publicPlan(p), users: cm.get(p.id) || 0 })), settings: getSettings() });
+  res.json({ plans: allPlans().map((p) => ({ ...publicPlan(p), users: cm.get(p.id) || 0 })), settings: getSettings(), metricCatalog: METRIC_KEYS.map((k) => ({ key: k, label: METRIC_LABELS[k] })) });
 });
 
 function planFields(b, creating) {
@@ -233,6 +257,8 @@ function planFields(b, creating) {
   if (b.dailyCredits !== undefined) f.dailyCredits = nullableInt(b.dailyCredits);
   if (b.monthlyCredits !== undefined) f.monthlyCredits = nullableInt(b.monthlyCredits);
   if (b.rpm !== undefined) f.rpm = int(b.rpm, 1) ?? 10;
+  if (b.overageInr !== undefined) f.overageInr = b.overageInr === null || b.overageInr === "" ? null : Math.max(0, Number(b.overageInr)) || null;
+  if (b.metrics !== undefined) f.metrics = (Array.isArray(b.metrics) ? b.metrics : []).filter((k) => METRIC_KEYS.includes(k));
   for (const k of ["ai", "popular", "contact", "active"]) if (b[k] !== undefined) f[k] = !!b[k];
   if (b.order !== undefined) f.order = int(b.order) ?? 100;
   if (b.extraFeatures !== undefined) f.extraFeatures = (Array.isArray(b.extraFeatures) ? b.extraFeatures : String(b.extraFeatures).split("\n")).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
@@ -272,6 +298,9 @@ r.put("/settings", async (req, res) => {
   const next = {
     creditCost: { scan: int(b.creditCost?.scan, 0) ?? cur.creditCost.scan, ai: int(b.creditCost?.ai, 0) ?? cur.creditCost.ai },
     planDays: Math.min(366, int(b.planDays, 1) ?? cur.planDays),
+    gstPercent: Math.min(50, Number.isFinite(Number(b.gstPercent)) && Number(b.gstPercent) >= 0 ? Number(b.gstPercent) : cur.gstPercent),
+    topupMin: int(b.topupMin, 1) ?? cur.topupMin,
+    topupOptions: Array.isArray(b.topupOptions) ? b.topupOptions.map((x) => int(x, 1)).filter(Boolean).slice(0, 6) : cur.topupOptions,
   };
   await Setting.updateOne({ key: "global" }, { value: next }, { upsert: true });
   await loadConfig(); await audit(req, "settings.update", "global", { before: cur, after: next });
@@ -290,7 +319,7 @@ r.get("/payments", async (req, res) => {
   }
   const [rows, total] = await Promise.all([Payment.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("user", "email name"), Payment.countDocuments(filter)]);
   res.json({ total, page: p, limit, payments: rows.map((x) => ({ id: x.id, orderId: x.orderId, plan: x.plan, amount: x.amountPaise / 100, status: x.status,
-    mock: x.mock, manual: x.manual, paymentId: x.paymentId, note: x.note, createdAt: x.createdAt, paidAt: x.status === "paid" ? x.updatedAt : null,
+    kind: x.kind || "plan", gst: (x.gstPaise || 0) / 100, mock: x.mock, manual: x.manual, paymentId: x.paymentId, note: x.note, createdAt: x.createdAt, paidAt: x.status === "paid" ? x.updatedAt : null,
     userId: x.user?.id, userEmail: x.user?.email, userName: x.user?.name })) });
 });
 

@@ -62,14 +62,15 @@ def grade(img: np.ndarray, cv_result: dict) -> dict[str, int] | None:
     import anthropic
 
     client = anthropic.Anthropic()
-    items = "\n".join(f"- {k}: {LABELS[k]}" for k in METRICS)
-    hints = "\n".join(f"- {k}: {cv_result['metrics'][k]['concern']}" for k in METRICS)
+    keys = [k for k in METRICS if k in cv_result["metrics"]]  # only what this plan includes
+    items = "\n".join(f"- {k}: {LABELS[k]}" for k in keys)
+    hints = "\n".join(f"- {k}: {cv_result['metrics'][k]['concern']}" for k in keys)
     msg = client.messages.create(
         model=MODEL,
         max_tokens=600,
         messages=[{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": _encode(img)}},
-            {"type": "text", "text": PROMPT.format(items=items, hints=hints, keys=", ".join(METRICS))},
+            {"type": "text", "text": PROMPT.format(items=items, hints=hints, keys=", ".join(keys))},
         ]}],
     )
     text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
@@ -77,7 +78,7 @@ def grade(img: np.ndarray, cv_result: dict) -> dict[str, int] | None:
     if not m:
         return None
     data = json.loads(m.group(0))
-    return {k: int(np.clip(float(data[k]), 0, 100)) for k in METRICS if k in data}
+    return {k: int(np.clip(float(data[k]), 0, 100)) for k in keys if k in data}
 
 
 def blend(result: dict, ai: dict[str, int]) -> dict:

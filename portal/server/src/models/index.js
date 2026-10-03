@@ -12,6 +12,7 @@ const userSchema = new Schema({
   role: { type: String, enum: ["user", "admin"], default: "user" },
   disabled: { type: Boolean, default: false },
   lastLoginAt: { type: Date, default: null },
+  walletPaise: { type: Number, default: 0 },        // prepaid balance for overage scans (incl. GST)
 }, { timestamps: true });
 
 const apiKeySchema = new Schema({
@@ -46,6 +47,8 @@ const paymentSchema = new Schema({
   amountPaise: Number,
   orderId: { type: String, unique: true, sparse: true },
   paymentId: String,
+  kind: { type: String, enum: ["plan", "topup"], default: "plan" },
+  basePaise: Number, gstPaise: { type: Number, default: 0 },
   status: { type: String, enum: ["created", "paid"], default: "created" },
   mock: { type: Boolean, default: false },
   manual: { type: Boolean, default: false }, // recorded by an admin (cash / UPI / bank transfer)
@@ -57,9 +60,11 @@ const planSchema = new Schema({
   id: { type: String, required: true, unique: true, lowercase: true, trim: true },
   name: { type: String, required: true, trim: true, maxlength: 40 },
   priceInr: { type: Number, default: null },        // null = contact sales
-  dailyCredits: { type: Number, default: null },    // null = unlimited
+  dailyCredits: { type: Number, default: null },    // scans (= requests) per day, null = unlimited
   monthlyCredits: { type: Number, default: null },
   rpm: { type: Number, default: 10 },
+  overageInr: { type: Number, default: null },      // extra scans beyond the monthly allowance, ₹ per scan excl. GST (null = not allowed)
+  metrics: { type: [String], default: [] },         // skin parameters returned (empty = all)
   ai: { type: Boolean, default: false },
   blurb: { type: String, default: "", maxlength: 160 },
   extraFeatures: { type: [String], default: [] },
@@ -90,6 +95,8 @@ const logSchema = new Schema({
   httpStatus: Number,
   errorCode: String,
   credits: { type: Number, default: 0 },
+  overage: { type: Boolean, default: false },
+  chargedPaise: { type: Number, default: 0 },
   ai: { type: Boolean, default: false },
   overlays: { type: Boolean, default: false },
   ms: Number,

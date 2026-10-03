@@ -1,4 +1,5 @@
-import { Usage, Daily, UsageLog } from "./models/index.js";
+import { Usage, Daily, UsageLog, User } from "./models/index.js";
+import { overageUnitPaise } from "./plans.js";
 
 // Daily / monthly windows reset at local midnight of this UTC offset (default IST, +5:30).
 const OFFSET_MIN = Number(process.env.RESET_UTC_OFFSET_MIN ?? 330);
@@ -25,8 +26,10 @@ export async function usedNow(userId) {
 }
 
 /**
- * Atomically take `cost` credits from BOTH the daily and the monthly allowance.
- * Returns { ok: true, day, month } or { ok: false, reason: "daily" | "monthly" }.
+ * Atomically take `cost` scans from the DAILY and the MONTHLY allowance.
+ * When the monthly allowance is used up and the plan allows overage, the scan is paid from the
+ * prepaid wallet instead (rate incl. GST). The daily cap always applies.
+ * Returns { ok, day, month, overage?, charged? } or { ok:false, reason: "daily" | "monthly", overage? }.
  */
 export async function consume(userId, plan, cost) {
   const day = dayOf(), period = periodOf();
@@ -42,18 +45,29 @@ export async function consume(userId, plan, cost) {
   const mFilter = { user: userId, period };
   if (plan.monthlyCredits != null) mFilter.count = { $lte: plan.monthlyCredits - cost };
   const m = await Usage.findOneAndUpdate(mFilter, { $inc: { count: cost } }, { new: true });
-  if (!m) { // monthly cap hit: undo the daily charge
+  if (m) return { ok: true, day: d.count, month: m.count };
+
+  const unit = overageUnitPaise(plan);
+  if (unit != null && plan.monthlyCredits != null) {
+    const charge = unit * cost;
+    const u = await User.findOneAndUpdate({ _id: userId, walletPaise: { $gte: charge } }, { $inc: { walletPaise: -charge } }, { new: true });
+    if (u) {
+      const m2 = await Usage.findOneAndUpdate({ user: userId, period }, { $inc: { count: cost } }, { new: true });
+      return { ok: true, day: d.count, month: m2.count, overage: true, charged: charge, wallet: u.walletPaise };
+    }
     await Daily.updateOne({ user: userId, day }, { $inc: { count: -cost } });
-    return { ok: false, reason: "monthly" };
+    return { ok: false, reason: "monthly", overageAvailable: true, unit };
   }
-  return { ok: true, day: d.count, month: m.count };
+  await Daily.updateOne({ user: userId, day }, { $inc: { count: -cost } }); // monthly cap hit: undo the daily charge
+  return { ok: false, reason: "monthly" };
 }
 
-/** Give credits back (failed scans - bad photo, engine error - are free). */
-export async function refund(userId, cost, when = new Date()) {
+/** Give scans (and any wallet charge) back - failed scans (bad photo, engine error) are free. */
+export async function refund(userId, cost, charged = 0, when = new Date()) {
   await Promise.all([
     Daily.updateOne({ user: userId, day: dayOf(when), count: { $gte: cost } }, { $inc: { count: -cost } }),
     Usage.updateOne({ user: userId, period: periodOf(when), count: { $gte: cost } }, { $inc: { count: -cost } }),
+    charged ? User.updateOne({ _id: userId }, { $inc: { walletPaise: charged } }) : null,
   ]);
 }
 

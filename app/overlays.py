@@ -305,11 +305,11 @@ def _jpeg_b64(img: np.ndarray, max_side=720, q=80) -> str:
     return base64.b64encode(buf.tobytes()).decode()
 
 
-def render_all(analyzer, face, orig: np.ndarray) -> dict[str, str]:
+def render_all(analyzer, face, orig: np.ndarray, keys=None) -> dict[str, str]:
     """{metric_key: base64 JPEG} - the photo with that metric's mask drawn on it."""
     ctx = Ctx(analyzer, face)
     out = {}
-    for m in METRICS:
+    for m in (keys or METRICS):
         ly = Layer(ctx.shape)
         try:
             PAINTERS[m](ctx, ly)
