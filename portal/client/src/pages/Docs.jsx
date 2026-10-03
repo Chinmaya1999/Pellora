@@ -41,7 +41,7 @@ export default function Docs() {
         <tbody>
           <tr><td><code>image</code></td><td>file (required)</td><td>JPG, PNG or WEBP, up to 10 MB. One front-facing face, even light, no filters.</td></tr>
           <tr><td><code>use_ai</code></td><td>boolean</td><td>AI second opinion. Growth plan and above.</td></tr>
-          <tr><td><code>overlays</code></td><td>boolean</td><td>Return, for every metric, the photo with that metric's analysis mask drawn on it as <code>metrics.&lt;key&gt;.overlay_jpeg_base64</code> (JPEG, max 720 px). Adds about 0.4 s.</td></tr>
+          <tr><td><code>overlays</code></td><td>boolean, default <code>true</code></td><td>Every metric comes back with your photo and that metric's analysis mask drawn on it, as <code>metrics.&lt;key&gt;.overlay_jpeg_base64</code> (JPEG, max 720 px, 15 images per scan). Show one with <code>&lt;img src=&quot;data:image/jpeg;base64,…&quot;&gt;</code>. Send <code>overlays=false</code> for scores only and a much smaller, faster response.</td></tr>
           <tr><td><code>overlay</code></td><td>boolean</td><td>Also return an image with analysis zones drawn on it (<code>overlay_jpeg_base64</code>).</td></tr>
         </tbody>
       </table>

@@ -17,7 +17,7 @@ export async function metered(req, res) {
   const t0 = Date.now();
   const source = req.keyName ? "api" : "playground";
   const wantsAi = String(req.body.use_ai) === "true";
-  const wantsOverlays = String(req.body.overlays) === "true";
+  const wantsOverlays = String(req.body.overlays) !== "false"; // on by default
   const base = { user: user._id, source, keyName: req.keyName || "Dashboard playground", ai: wantsAi, overlays: wantsOverlays };
   const done = (httpStatus, status, extra = {}) =>
     logUsage({ ...base, status, httpStatus, ms: Date.now() - t0, ...extra });

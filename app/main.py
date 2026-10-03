@@ -72,7 +72,7 @@ async def analyze(
     image: UploadFile = File(...),
     use_ai: bool = Form(False),
     overlay: bool = Form(False),
-    overlays: bool = Form(False),
+    overlays: bool = Form(True),   # per-metric mask images are returned unless overlays=false
     x_api_key: str | None = Header(None),
 ):
     _auth(x_api_key)

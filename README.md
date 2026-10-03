@@ -57,7 +57,7 @@ Here is part of a response:
 - `level` is one of `none`, `mild`, `moderate` or `severe`.
 - `confidence` runs 0 to 1 and tells you how much to trust that metric for this particular photo.
 - Bad photos come back as HTTP 422, for example `{"error":"too_dark","message":"..."}`. Show the `message` to the user so they can retake the photo. The possible codes are `no_face`, `face_too_small`, `too_dark`, `face_turned` and `eyes_closed`.
-- To get an image with the analysis zones drawn on it, add `-F overlay=true`.
+- Every metric also returns `overlay_jpeg_base64`: your photo with that metric's mask drawn on it (15 images). Send `-F overlays=false` for scores only. `-F overlay=true` adds one extra image with all analysis zones.
 
 ## 4. How it works
 
