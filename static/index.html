@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Skin Scan</title>
+<style>
+  :root{--bg:#f7f4f0;--card:#fff;--ink:#1f1b16;--muted:#7a7068;--accent:#b4654a;--line:#e9e2da;
+        --good:#4f8a5b;--mild:#c9a227;--mod:#d97a33;--sev:#c0392b}
+  @media (prefers-color-scheme:dark){:root{--bg:#171513;--card:#211e1b;--ink:#f1ece6;--muted:#a59a90;--line:#35302b}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{max-width:980px;margin:0 auto;padding:24px 16px 60px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.02em} .sub{color:var(--muted);margin:0 0 20px}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .stage{position:relative;aspect-ratio:3/4;background:#000;border-radius:12px;overflow:hidden}
+  video,.stage img{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .stage img.still{transform:none}
+  .oval{position:absolute;inset:12% 20% 14%;border:3px dashed rgba(255,255,255,.75);border-radius:50%}
+  .hint{position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#fff;font-weight:600;text-shadow:0 1px 4px #000;padding:0 8px}
+  .oval.ok{border-color:#4f8a5b;border-style:solid}
+  .tips{color:var(--muted);font-size:13px;margin:10px 0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  button,label.btn{border:0;border-radius:999px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;background:var(--accent);color:#fff}
+  .ghost{background:transparent!important;color:var(--ink)!important;border:1px solid var(--line)!important}
+  input[type=file]{display:none}
+  .opt{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-top:10px}
+  .overall{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+  .ring{width:88px;height:88px;border-radius:50%;display:grid;place-items:center;font-size:28px;font-weight:700}
+  .m{display:grid;grid-template-columns:170px 1fr 44px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+  .m:first-child{border-top:0}
+  .bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden}.bar i{display:block;height:100%;border-radius:99px}
+  .lv{font-size:11px;color:var(--muted)} .num{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+  .err{color:var(--sev);font-weight:600} .q{font-size:12px;color:var(--muted);margin-top:12px}
+  .empty{color:var(--muted);text-align:center;padding:60px 10px}
+  @media(max-width:420px){.m{grid-template-columns:120px 1fr 36px}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Skin Scan</h1>
+  <p class="sub">Face the camera in soft, even daylight. No makeup, no filters, neutral expression.</p>
+  <div class="grid">
+    <section class="card">
+      <div class="stage" id="stage"><video id="video" playsinline autoplay muted></video><div class="oval" id="oval"></div><div id="hint" class="hint">Start the camera</div></div>
+      <p class="tips">Fill the oval with your face · hair off forehead · glasses off · hold still</p>
+      <div class="row">
+        <button id="start">Start camera</button>
+        <button id="snap" class="ghost" disabled>Scan my face</button>
+        <label class="btn ghost">Upload photo<input type="file" id="file" accept="image/*"></label>
+      </div>
+      <label class="opt"><input type="checkbox" id="auto" checked> Auto-capture when my face is positioned correctly</label>
+      <label class="opt"><input type="checkbox" id="ai"> Use AI second opinion (more accurate, slower)</label>
+      <label class="opt">API key <input id="key" placeholder="X-API-Key (if required)" style="flex:1;padding:6px;border:1px solid var(--line);border-radius:8px;background:transparent;color:inherit"></label>
+    </section>
+    <section class="card" id="out"><div class="empty">Your results will appear here.</div></section>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const video = $('#video'); let stream;
+let watching = false, okCount = 0;
+$('#start').onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1920},height:{ideal:1440}}});
+    video.srcObject = stream; $('#snap').disabled = false;
+    okCount = 0; if (!watching) { watching = true; watch(); }
+  } catch(e){ $('#out').innerHTML = '<p class="err">Camera not available. Use "Upload photo".</p>'; }
+};
+function grab(maxW){
+  const s = Math.min(1, maxW / video.videoWidth);
+  const c = document.createElement('canvas'); c.width = Math.round(video.videoWidth*s); c.height = Math.round(video.videoHeight*s);
+  c.getContext('2d').drawImage(video,0,0,c.width,c.height);
+  return new Promise(r => c.toBlob(r, 'image/jpeg', maxW > 800 ? 0.95 : 0.7));
+}
+const authHeaders = () => $('#key').value ? {'X-API-Key': $('#key').value} : {};
+async function watch(){
+  while (stream && stream.active) {
+    if (!$('#auto').checked || !video.videoWidth) { $('#hint').textContent = ''; $('#oval').classList.remove('ok'); okCount = 0; await new Promise(r => setTimeout(r, 500)); continue; }
+    try {
+      const fd = new FormData(); fd.append('image', await grab(480), 'f.jpg');
+      const r = await fetch('/v1/check', {method:'POST', body:fd, headers:authHeaders()});
+      const d = await r.json();
+      okCount = d.ready ? okCount + 1 : 0;
+      $('#oval').classList.toggle('ok', !!d.ready);
+      $('#hint').textContent = d.ready ? `${d.message} (${Math.max(0, 3 - okCount)})` : (d.message || d.detail || '');
+      if (okCount >= 3) { okCount = 0; await $('#snap').onclick(); await new Promise(r => setTimeout(r, 4000)); }
+    } catch(e){ $('#hint').textContent = 'Connection problem'; }
+    await new Promise(r => setTimeout(r, 400));
+  }
+  watching = false; $('#hint').textContent = '';
+}
+$('#snap').onclick = async () => send(await grab(1920));
+$('#file').onchange = e => e.target.files[0] && send(e.target.files[0]);
+
+const color = s => s>=80?'var(--good)':s>=55?'var(--mild)':s>=30?'var(--mod)':'var(--sev)';
+async function send(blob){
+  $('#out').innerHTML = '<div class="empty">Analyzing…</div>';
+  const fd = new FormData(); fd.append('image', blob, 'face.jpg');
+  fd.append('use_ai', $('#ai').checked); fd.append('overlay', 'false');
+  const headers = {}; if ($('#key').value) headers['X-API-Key'] = $('#key').value;
+  try {
+    const r = await fetch('/v1/analyze', {method:'POST', body:fd, headers});
+    const d = await r.json();
+    if (!r.ok) { $('#out').innerHTML = `<p class="err">${d.message || d.detail || 'Scan failed'}</p>`; return; }
+    render(d);
+  } catch(e){ $('#out').innerHTML = '<p class="err">Network error.</p>'; }
+}
+function render(d){
+  const rows = Object.values(d.metrics).map(m => `
+    <div class="m"><div>${m.label}<div class="lv">${m.level} · conf ${Math.round(m.confidence*100)}%</div></div>
+    <div class="bar"><i style="width:${m.score}%;background:${color(m.score)}"></i></div>
+    <div class="num">${m.score}</div></div>`).join('');
+  const q = d.quality.issues.length ? 'Photo issues: ' + d.quality.issues.join(', ').replaceAll('_',' ') : 'Photo quality good';
+  $('#out').innerHTML = `
+    <div class="overall"><div class="ring" style="border:6px solid ${color(d.overall_score)}">${d.overall_score}</div>
+    <div><b>Overall skin score</b><br><span class="lv">100 = excellent · engine: ${d.engine} · ${d.processing_ms} ms</span></div></div>
+    ${rows}<p class="q">${q} (quality ${d.quality.score}/100)<br>${d.disclaimer}</p>`;
+}
+</script>
+</body>
+</html>

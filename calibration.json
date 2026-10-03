@@ -1,0 +1,63 @@
+{
+  "_note": "Starting anchors (raw value for 'clear' skin -> concern 0, raw for 'severe' -> concern 100). Replace with fitted values by running tools/calibrate.py on your own labelled photos.",
+  "spots": {
+    "clear": 3,
+    "severe": 25
+  },
+  "pores": {
+    "clear": 8,
+    "severe": 40
+  },
+  "texture": {
+    "clear": 1.8,
+    "severe": 4.5
+  },
+  "redness": {
+    "clear": 8,
+    "severe": 30
+  },
+  "dark_circles": {
+    "clear": -2,
+    "severe": 12
+  },
+  "wrinkles": {
+    "clear": 2,
+    "severe": 12
+  },
+  "acne": {
+    "clear": 1,
+    "severe": 15
+  },
+  "oiliness": {
+    "clear": 5,
+    "severe": 60
+  },
+  "moisture": {
+    "clear": -0.5,
+    "severe": 3
+  },
+  "firmness": {
+    "clear": 12,
+    "severe": 45
+  },
+  "radiance": {
+    "clear": 22,
+    "severe": 2
+  },
+  "eye_bags": {
+    "clear": 2,
+    "severe": 16
+  },
+  "upper_eyelid_droopiness": {
+    "clear": 15,
+    "severe": 60
+  },
+  "lower_eyelid_droopiness": {
+    "clear": -4,
+    "severe": 10
+  },
+  "under_eye_hollows": {
+    "clear": -2,
+    "severe": 12
+  }
+}
