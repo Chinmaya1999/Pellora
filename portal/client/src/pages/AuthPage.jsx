@@ -10,7 +10,7 @@ export default function AuthPage({ mode }) {
   const isSignup = mode === "signup";
   const { user, login, signup } = useAuth();
   const nav = useNavigate();
-  const [f, setF] = useState({ name: "", company: "", email: "", password: "" });
+  const [f, setF] = useState({ name: "", company: "", phone: "", email: "", password: "" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -47,6 +47,7 @@ export default function AuthPage({ mode }) {
             <label>Name<input required value={f.name} onChange={set("name")} autoComplete="name" /></label>
             <label>Company <span className="muted">(optional)</span><input value={f.company} onChange={set("company")} autoComplete="organization" /></label>
           </>}
+          {isSignup && <label>Mobile number<input required type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={14} pattern="[+0-9 \-]{10,14}" placeholder="10-digit mobile number" value={f.phone} onChange={set("phone")} /></label>}
           <label>Email<input required type="email" value={f.email} onChange={set("email")} autoComplete="email" /></label>
           <label>Password<input required type="password" minLength={isSignup ? 8 : 1} value={f.password} onChange={set("password")}
             autoComplete={isSignup ? "new-password" : "current-password"} placeholder={isSignup ? "At least 8 characters" : ""} /></label>

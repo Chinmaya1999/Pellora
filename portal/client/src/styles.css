@@ -324,4 +324,4 @@ html,body{overflow-x:hidden}
 .tag{background:var(--brand-soft);color:var(--brand);font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px}
 
 .phone-row{display:block;max-width:360px;margin:6px 0 14px;font-size:14px;font-weight:600}
-.phone-row input{display:block;width:100%;margin-top:6px}
+.phone-row input{display:block;width:100%;margin-top:6px}.phone-row small{display:block;margin-top:4px;font-weight:400}

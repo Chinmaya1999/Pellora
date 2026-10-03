@@ -12,6 +12,9 @@ const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeader
   message: { error: "too_many_attempts", message: "Too many attempts. Try again in a few minutes." } });
 
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+// Indian mobile: accepts "98765 43210", "+91 98765-43210" etc. and keeps the 10 digits
+const cleanPhone = (v) => String(v || "").replace(/\D/g, "").slice(-10);
+const phoneOk = (p) => /^[6-9]\d{9}$/.test(p);
 
 export const publicUser = (u) => {
   const plan = effectivePlan(u);
@@ -20,11 +23,13 @@ export const publicUser = (u) => {
 
 r.post("/auth/signup", authLimiter, async (req, res) => {
   const { name, email, password, company } = req.body || {};
+  const phone = cleanPhone(req.body?.phone);
   if (!name?.trim()) return res.status(400).json({ message: "Please enter your name." });
   if (!emailOk(email || "")) return res.status(400).json({ message: "Please enter a valid email." });
+  if (!phoneOk(phone)) return res.status(400).json({ message: "Please enter a valid 10-digit mobile number." });
   if (!password || password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters." });
   if (await User.exists({ email: email.toLowerCase() })) return res.status(409).json({ message: "An account with this email already exists." });
-  const user = await User.create({ name, email, company, passwordHash: await bcrypt.hash(password, 11) });
+  const user = await User.create({ name, email, company, phone, passwordHash: await bcrypt.hash(password, 11) });
   // Starter key so people can try the API right away
   const k = generateKey();
   await ApiKey.create({ user: user._id, name: "Default key", prefix: k.prefix, last4: k.last4, hash: k.hash });

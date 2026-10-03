@@ -72,8 +72,9 @@ export default function Billing() {
       {cfg?.devCheckout && <p className="notice card small">Test mode: no payment gateway is configured, so upgrading activates a plan without payment.</p>}
       {cfg?.paymentsEnabled && cfg.mode === "sandbox" && <p className="notice card small">Payment gateway is in <b>sandbox</b> mode: use Cashfree test cards/UPI, no real money moves.</p>}
       {cfg?.paymentsEnabled && (
-        <label className="phone-row">Mobile number (required by the payment gateway)
-          <input inputMode="numeric" maxLength={14} placeholder="10-digit mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <label className="phone-row">Mobile number <span className="muted">(required by the payment gateway)</span>
+          <input type="tel" inputMode="numeric" maxLength={14} placeholder="10-digit mobile number" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          {user.phone && phone.replace(/\D/g, "").slice(-10) === user.phone && <small className="muted">Using the number you registered with.</small>}
         </label>
       )}
       {msg && <p className={msg.ok ? "ok" : "err"}>{msg.text}</p>}
