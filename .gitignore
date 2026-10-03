@@ -1,4 +1,14 @@
+# secrets - never commit
 .env
-node_modules
-dist
-.venv
+*.env
+!.env.example
+!**/.env.example
+*.pem
+*.key
+# build / deps
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../brand";
 import Code, { curlExample, jsExample, pyExample } from "../components/Code";
 
 const RESPONSE = `{
@@ -16,7 +17,8 @@ const RESPONSE = `{
 
 const ERRORS = [
   ["401", "missing_api_key / invalid_api_key", "Key missing, wrong or revoked."],
-  ["402", "quota_exceeded", "Monthly scan limit reached. Upgrade or wait for the reset."],
+  ["429", "daily_limit_exceeded", "Daily credit cap reached. Resets at midnight IST (see Retry-After)."],
+  ["402", "quota_exceeded", "Monthly credit cap reached. Upgrade or wait for the reset."],
   ["403", "plan_upgrade_required", "Feature (e.g. use_ai) needs a higher plan."],
   ["413", "image_too_large", "Image over 10 MB."],
   ["422", "no_face · face_too_small · too_dark · face_turned · eyes_closed", "Bad photo. Show message to the user so they can retake it. Not billed."],
@@ -30,7 +32,7 @@ export default function Docs() {
   return (
     <main className="wrap section docs">
       <h1>API reference</h1>
-      <p className="lead">Base URL: <code>{location.origin}</code> · Authenticate with the <code>X-API-Key</code> header.</p>
+      <p className="lead">Base URL: <code>{API_BASE}</code> · Authenticate with the <code>X-API-Key</code> header.</p>
 
       <h2>POST /v1/analyze</h2>
       <p>Send a face photo as <code>multipart/form-data</code>.</p>
@@ -57,7 +59,7 @@ export default function Docs() {
         <li><code>score</code> is 0-100, higher is better. <code>concern</code> = 100 − score.</li>
         <li><code>level</code> is <code>none</code>, <code>mild</code>, <code>moderate</code> or <code>severe</code>.</li>
         <li><code>confidence</code> (0-1) says how much to trust that metric for this photo.</li>
-        <li>Quota headers on every call: <code>X-Quota-Limit</code>, <code>X-Quota-Remaining</code>.</li>
+        <li>Credits: 1 scan = 1 credit, <code>use_ai</code> = 2 credits; failed or rejected photos are free. Every response includes <code>X-Credits-Cost</code>, <code>X-Credits-Daily-Remaining</code> and <code>X-Credits-Monthly-Remaining</code>.</li>
       </ul>
 
       <h2>Errors</h2>

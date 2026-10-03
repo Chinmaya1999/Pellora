@@ -11,10 +11,11 @@ import Overview from "./pages/dashboard/Overview";
 import Keys from "./pages/dashboard/Keys";
 import Playground from "./pages/dashboard/Playground";
 import Billing from "./pages/dashboard/Billing";
+import Usage from "./pages/dashboard/Usage";
 
 function Public() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   const bare = pathname === "/login" || pathname === "/signup"; // auth pages have their own layout
   return (<>{!bare && <Nav />}<Outlet />{!bare && <Footer />}</>);
 }
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />}>
           <Route index element={<Overview />} />
           <Route path="keys" element={<Keys />} />
+          <Route path="usage" element={<Usage />} />
           <Route path="playground" element={<Playground />} />
           <Route path="billing" element={<Billing />} />
         </Route>

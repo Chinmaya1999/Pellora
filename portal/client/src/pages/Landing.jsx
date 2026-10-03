@@ -66,7 +66,7 @@ export default function Landing() {
               <Link className="btn lg glass" to="/docs">Read the docs →</Link>
             </div>
             <ul className="h-points">
-              <li>100 free scans</li><li>No credit card</li><li>Key in 30 seconds</li>
+              <li>10 free scans / day</li><li>No credit card</li><li>Key in 30 seconds</li>
             </ul>
           </div>
           <div className="h-visual"><ScanVisual /></div>

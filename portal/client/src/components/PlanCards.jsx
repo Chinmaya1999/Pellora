@@ -3,7 +3,7 @@ import { api, inr } from "../api";
 
 export function usePlans() {
   const [data, setData] = useState(null);
-  useEffect(() => { api("/billing/plans").then(setData).catch(() => setData({ plans: [] })); }, []);
+  useEffect(() => { api("/billing/plans").then((d) => setData({ ...d, plans: d.plans || [] })).catch(() => setData({ plans: [] })); }, []);
   return data;
 }
 

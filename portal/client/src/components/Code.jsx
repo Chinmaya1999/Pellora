@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from "../brand";
 
 export default function Code({ children, label }) {
   const [copied, setCopied] = useState(false);
@@ -13,14 +14,14 @@ export default function Code({ children, label }) {
   );
 }
 
-export const curlExample = (key = "YOUR_API_KEY") => `curl -X POST ${location.origin}/v1/analyze \\
+export const curlExample = (key = "YOUR_API_KEY") => `curl -X POST ${API_BASE}/v1/analyze \\
   -H "X-API-Key: ${key}" \\
   -F image=@selfie.jpg`;
 
 export const jsExample = (key = "YOUR_API_KEY") => `const form = new FormData();
 form.append("image", fileInput.files[0]);
 
-const res = await fetch("${location.origin}/v1/analyze", {
+const res = await fetch("${API_BASE}/v1/analyze", {
   method: "POST",
   headers: { "X-API-Key": "${key}" },
   body: form,
@@ -31,7 +32,7 @@ console.log(report.overall_score, report.metrics.pores.score);`;
 export const pyExample = (key = "YOUR_API_KEY") => `import requests
 
 r = requests.post(
-    "${location.origin}/v1/analyze",
+    "${API_BASE}/v1/analyze",
     headers={"X-API-Key": "${key}"},
     files={"image": open("selfie.jpg", "rb")},
 )

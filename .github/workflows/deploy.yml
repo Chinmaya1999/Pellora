@@ -1,0 +1,75 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  API_BASE: https://apipellora.cmcloud.online
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { name: pellora-engine, context: ".",             file: "Dockerfile" }
+          - { name: pellora-server, context: "portal/server", file: "portal/server/Dockerfile" }
+          - { name: pellora-client, context: "portal/client", file: "portal/client/Dockerfile" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VITE_API_BASE=${{ env.API_BASE }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.name }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+      - name: Upload compose + Caddy config
+        run: |
+          scp -i ~/.ssh/deploy_key deploy/docker-compose.yml deploy/Caddyfile \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/pellora/
+      - name: Pull images and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "cd /opt/pellora && export TAG=${{ github.sha }} && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f"
+      - name: Health check
+        run: |
+          for url in "https://pellora.cmcloud.online/" "https://apipellora.cmcloud.online/v1/health" "https://pellora.cmcloud.online/api/billing/plans"; do
+            ok=0
+            for i in $(seq 1 30); do
+              if curl -fsS -m 10 "$url" >/dev/null; then ok=1; break; fi
+              echo "waiting for $url ($i/30)"; sleep 10
+            done
+            [ "$ok" = 1 ] || { echo "FAILED: $url"; exit 1; }
+            echo "OK: $url"
+          done

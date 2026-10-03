@@ -46,8 +46,25 @@ const paymentSchema = new Schema({
   mock: { type: Boolean, default: false },
 }, { timestamps: true });
 
+// One row per API / playground request, for the dashboard "Usage history".
+const logSchema = new Schema({
+  user: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  at: { type: Date, default: Date.now, index: { expires: 90 * 86400 } }, // kept 90 days
+  source: { type: String, enum: ["api", "playground"], default: "api" },
+  keyName: String,
+  status: { type: String, enum: ["success", "failed", "rejected"], required: true },
+  httpStatus: Number,
+  errorCode: String,
+  credits: { type: Number, default: 0 },
+  ai: { type: Boolean, default: false },
+  overlays: { type: Boolean, default: false },
+  ms: Number,
+});
+logSchema.index({ user: 1, at: -1 });
+
 export const User = model("User", userSchema);
 export const ApiKey = model("ApiKey", apiKeySchema);
 export const Usage = model("Usage", usageSchema);
 export const Daily = model("Daily", dailySchema);
 export const Payment = model("Payment", paymentSchema);
+export const UsageLog = model("UsageLog", logSchema);

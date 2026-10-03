@@ -315,3 +315,10 @@ html,body{overflow-x:hidden}
 .h-in>*,.codesec>*,.auth2>*{min-width:0}
 .h-hero h1{overflow-wrap:break-word}
 @media(max-width:560px){.h-hero h1{font-size:34px}.scanv-chip{font-size:12px;padding:6px 10px 6px 8px}.h-visual{max-width:300px}.h-points{gap:12px}}
+
+/* usage + credits */
+.stat .of{font-size:15px;font-weight:600}
+.hist-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}.hist-head h3{margin:0}
+.filters{display:flex;gap:8px}.filters select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.tscroll{overflow-x:auto}.table td{white-space:nowrap}
+.tag{background:var(--brand-soft);color:var(--brand);font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px}

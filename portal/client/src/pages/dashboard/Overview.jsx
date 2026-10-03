@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import Code, { curlExample } from "../../components/Code";
+import Meter from "../../components/Meter";
 
 function Chart({ data }) {
   const max = Math.max(5, ...data.map((d) => d.count));
@@ -10,7 +11,7 @@ function Chart({ data }) {
     <svg viewBox={`0 0 ${w} ${h + 18}`} className="chart" role="img" aria-label="Scans per day, last 30 days">
       {data.map((d, i) => {
         const bh = (d.count / max) * h;
-        return <rect key={d.day} x={i * bw + 2} y={h - bh} width={bw - 4} height={Math.max(bh, d.count ? 2 : 0)} rx="2" className="bar-fill"><title>{d.day}: {d.count}</title></rect>;
+        return <rect key={d.day} x={i * bw + 2} y={h - bh} width={bw - 4} height={Math.max(bh, d.count ? 2 : 0)} rx="2" className="bar-fill"><title>{d.day}: {d.count} credits</title></rect>;
       })}
       <line x1="0" x2={w} y1={h} y2={h} className="axis" />
       <text x="0" y={h + 14} className="axis-t">{data[0].day.slice(5)}</text>
@@ -24,8 +25,7 @@ export default function Overview() {
   const [firstKey, setFirstKey] = useState(() => sessionStorage.getItem("firstKey"));
   useEffect(() => { api("/usage").then(setU); }, []);
   if (!u) return <p className="muted">Loading…</p>;
-  const pct = u.limit ? Math.min(100, Math.round((u.used / u.limit) * 100)) : 0;
-
+  
   return (
     <>
       <h1>Overview</h1>
@@ -38,12 +38,13 @@ export default function Overview() {
       )}
       <div className="stats">
         <div className="card stat"><span className="muted small">Plan</span><b>{u.planName}</b><Link to="/dashboard/billing">Change plan</Link></div>
-        <div className="card stat"><span className="muted small">Scans this month</span><b>{u.used.toLocaleString()}{u.limit ? ` / ${u.limit.toLocaleString()}` : ""}</b>
-          {u.limit ? <div className="bar"><i className={pct > 90 ? "sev" : pct > 70 ? "mod" : "good"} style={{ width: `${pct}%` }} /></div> : null}</div>
-        <div className="card stat"><span className="muted small">Resets</span><b>{new Date(u.resetsAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</b></div>
+        <Meter title="Credits today" w={u.day} />
+        <Meter title="Credits this month" w={u.month} />
       </div>
-      {u.limit && u.remaining === 0 && <p className="err">You've used all your scans. <Link to="/dashboard/billing">Upgrade to continue.</Link></p>}
-      <div className="card"><h3>Scans per day · last 30 days</h3><Chart data={u.daily} /></div>
+      {u.day.remaining === 0 && <p className="err">You've used today's credits. They reset at midnight (IST), or <Link to="/dashboard/billing">upgrade for more</Link>.</p>}
+      {u.month.remaining === 0 && <p className="err">Monthly credits used up. <Link to="/dashboard/billing">Upgrade to continue.</Link></p>}
+      <p className="muted small">1 scan = {u.costs.scan} credit · with AI second opinion = {u.costs.ai} credits · failed or rejected photos cost nothing. <Link to="/dashboard/usage">See usage history →</Link></p>
+      <div className="card"><h3>Credits used per day · last 30 days</h3><Chart data={u.daily} /></div>
       <div className="card"><h3>Quickstart</h3><p className="muted">Replace YOUR_API_KEY with a key from <Link to="/dashboard/keys">API keys</Link>.</p><Code label="cURL">{curlExample()}</Code></div>
     </>
   );

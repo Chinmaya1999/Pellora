@@ -1,10 +1,11 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
-import { User, ApiKey } from "../models/index.js";
+import { User, ApiKey, UsageLog } from "../models/index.js";
 import { setSession, clearSession, requireAuth, generateKey } from "../middleware/auth.js";
 import { effectivePlan } from "../plans.js";
-import { usedThisMonth, nextReset, dailySeries } from "../usage.js";
+import { usedNow, nextDayReset, nextMonthReset, dailySeries } from "../usage.js";
+import { CREDIT_COST } from "../plans.js";
 
 const r = Router();
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: true, legacyHeaders: false,
@@ -44,14 +45,32 @@ r.post("/auth/login", authLimiter, async (req, res) => {
 r.post("/auth/logout", (req, res) => { clearSession(res); res.json({ ok: true }); });
 r.get("/auth/me", requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
 
-// ---- usage overview
+// ---- usage overview (credits)
+const left = (limit, used) => (limit == null ? null : Math.max(0, limit - used));
 r.get("/usage", requireAuth, async (req, res) => {
   const plan = effectivePlan(req.user);
-  const used = await usedThisMonth(req.user._id);
+  const used = await usedNow(req.user._id);
   res.json({
-    plan: plan.id, planName: plan.name, limit: plan.scans, used,
-    remaining: plan.scans == null ? null : Math.max(0, plan.scans - used),
-    resetsAt: nextReset(), daily: await dailySeries(req.user._id, 30),
+    plan: plan.id, planName: plan.name, costs: CREDIT_COST,
+    day: { used: used.day, limit: plan.dailyCredits, remaining: left(plan.dailyCredits, used.day), resetsAt: nextDayReset() },
+    month: { used: used.month, limit: plan.monthlyCredits, remaining: left(plan.monthlyCredits, used.month), resetsAt: nextMonthReset() },
+    daily: await dailySeries(req.user._id, 30),
+  });
+});
+
+// ---- usage history (newest first, cursor = last row's `at`)
+r.get("/usage/history", requireAuth, async (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+  const q = { user: req.user._id };
+  if (req.query.before) q.at = { $lt: new Date(String(req.query.before)) };
+  if (["success", "failed", "rejected"].includes(req.query.status)) q.status = req.query.status;
+  if (["api", "playground"].includes(req.query.source)) q.source = req.query.source;
+  const rows = await UsageLog.find(q).sort({ at: -1 }).limit(limit + 1);
+  const more = rows.length > limit;
+  res.json({
+    rows: rows.slice(0, limit).map((x) => ({ id: x.id, at: x.at, source: x.source, keyName: x.keyName, status: x.status,
+      httpStatus: x.httpStatus, errorCode: x.errorCode, credits: x.credits, ai: x.ai, overlays: x.overlays, ms: x.ms })),
+    next: more ? rows[limit - 1].at : null,
   });
 });
 

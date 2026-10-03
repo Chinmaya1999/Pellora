@@ -2,7 +2,7 @@ import { NavLink, Outlet, Link } from "react-router-dom";
 import { useAuth } from "../../auth";
 import { Logo } from "../../components/Layout";
 
-const LINKS = [["/dashboard", "Overview", true], ["/dashboard/keys", "API keys"], ["/dashboard/playground", "Playground"], ["/dashboard/billing", "Billing"]];
+const LINKS = [["/dashboard", "Overview", true], ["/dashboard/keys", "API keys"], ["/dashboard/usage", "Usage history"], ["/dashboard/playground", "Playground"], ["/dashboard/billing", "Billing"]];
 
 export default function Dashboard() {
   const { user, logout } = useAuth();

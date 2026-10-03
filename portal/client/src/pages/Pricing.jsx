@@ -3,8 +3,8 @@ import PlanCards from "../components/PlanCards";
 import { SALES_EMAIL } from "../brand";
 
 const FAQ = [
-  ["What counts as a scan?", "One successful analysis. Photos rejected for quality (too dark, no face, eyes closed…) are not counted against your quota."],
-  ["What happens if I hit my limit?", "Requests return HTTP 402 until the month resets or you upgrade. We never charge overage automatically."],
+  ["How do credits work?", "1 scan = 1 credit. A scan with the AI second opinion = 2 credits. Every plan has a daily cap and a monthly cap; daily credits reset at midnight (IST). Photos rejected for quality (too dark, no face, eyes closed…) and engine errors cost nothing."],
+  ["What happens if I hit my limit?", "Requests return HTTP 429 (daily cap, resets at midnight IST) or 402 (monthly cap) until the window resets or you upgrade. We never charge overage automatically."],
   ["Can I change plans?", "Yes. Upgrade any time from your dashboard; the new plan starts immediately and lasts 30 days."],
   ["Do you offer white-label or custom volume?", "Yes, on the Enterprise plan. Contact sales."],
 ];
@@ -13,7 +13,7 @@ export default function Pricing() {
   return (
     <main className="wrap section">
       <h1 className="center-t">Pricing</h1>
-      <p className="lead center-t">Pay for scans, not seats. Prices in INR, billed through Razorpay (UPI, cards, netbanking).</p>
+      <p className="lead center-t">Pay for credits, not seats. Prices in INR, billed through Razorpay (UPI, cards, netbanking).</p>
       <PlanCards action={(p) => p.contact
         ? <a className="btn ghost block" href={`mailto:${SALES_EMAIL}`}>Contact sales</a>
         : <Link className={`btn block ${p.popular ? "" : "ghost"}`} to="/signup">{p.priceInr ? `Choose ${p.name}` : "Start free"}</Link>} />

@@ -64,7 +64,7 @@ export async function requireApiKey(req, res, next) {
       return res.status(429).json({ error: "rate_limited", message: `Rate limit is ${plan.rpm} requests/minute on the ${plan.name} plan.` });
     }
     ApiKey.updateOne({ _id: key._id }, { lastUsedAt: new Date() }).catch(() => {});
-    req.user = user; req.plan = plan;
+    req.user = user; req.plan = plan; req.keyName = key.name;
     next();
   } catch (e) { next(e); }
 }

@@ -1,0 +1,26 @@
+{
+	email chinmaya.dob1999@gmail.com
+}
+
+# Portal website (React) - /api and /v1 are proxied to the server by the client container
+pellora.cmcloud.online {
+	encode zstd gzip
+	reverse_proxy client:80
+}
+
+# Public API (customers call https://apipellora.cmcloud.online/v1/analyze)
+apipellora.cmcloud.online {
+	encode zstd gzip
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy server:4000
+}
+
+# Skin-analysis engine (needs the internal engine key; the portal calls it privately)
+skin.apipellora.cmcloud.online {
+	request_body {
+		max_size 12MB
+	}
+	reverse_proxy engine:8000
+}

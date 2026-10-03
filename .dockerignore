@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+portal
+deploy
+**/node_modules
+**/__pycache__
+*.pem
+.env
+*.env
+.DS_Store
