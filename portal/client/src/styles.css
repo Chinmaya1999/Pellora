@@ -682,3 +682,4 @@ ul.plain{padding-left:22px;display:flex;flex-direction:column;gap:6px}
 .float.f1{left:5%;top:-15px}.float.f2{right:5%;top:-15px;left:auto}
 .h2-cta .btn.ghost{background:var(--card);border-color:color-mix(in srgb,var(--ink) 20%,transparent)}.h2-cta .btn.ghost:hover{border-color:var(--brand)}
 @media(max-width:700px){.sh-face .mface{transform:none;max-height:340px;width:auto;margin:0 auto}}
+.float.f2{right:19%}
