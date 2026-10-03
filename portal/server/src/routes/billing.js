@@ -46,15 +46,18 @@ async function settle(orderId) {
   if (!pay) return { status: "unknown" };
   if (pay.status === "paid") return { status: "PAID" };
   const order = await cf(`/orders/${encodeURIComponent(orderId)}`);
-  if (order.order_status !== "PAID") return { status: order.order_status };
   if (Math.round(Number(order.order_amount) * 100) !== pay.amountPaise) return { status: "AMOUNT_MISMATCH" };
-  let paymentId = String(order.cf_order_id || orderId);
+
+  // The order flag can lag a few seconds behind the payment, so also accept a captured SUCCESS payment.
+  let ok = null;
   try {
     const list = await cf(`/orders/${encodeURIComponent(orderId)}/payments`);
-    const ok = (Array.isArray(list) ? list : []).find((p) => p.payment_status === "SUCCESS");
-    if (ok) paymentId = String(ok.cf_payment_id);
-  } catch { /* reference id is nice-to-have */ }
-  await fulfil(orderId, paymentId);
+    ok = (Array.isArray(list) ? list : []).find((p) =>
+      p.payment_status === "SUCCESS" && Math.round(Number(p.payment_amount) * 100) === pay.amountPaise);
+  } catch { /* fall back to the order flag */ }
+  if (order.order_status !== "PAID" && !ok) return { status: order.order_status };
+
+  await fulfil(orderId, ok ? String(ok.cf_payment_id) : String(order.cf_order_id || orderId));
   return { status: "PAID" };
 }
 

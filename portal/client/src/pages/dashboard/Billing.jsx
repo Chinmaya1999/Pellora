@@ -23,8 +23,13 @@ export default function Billing() {
   const loadHistory = () => api("/billing/history").then((d) => setHistory(d.payments));
 
   // Confirm with the server (which asks Cashfree) and activate the plan if the order is paid.
-  const confirm = async (orderId, planName) => {
-    const r = await api("/billing/verify", { method: "POST", body: { orderId } });
+  const confirm = async (orderId, planName, retries = 0) => {
+    let r = await api("/billing/verify", { method: "POST", body: { orderId } });
+    // right after paying, the gateway can take a few seconds to mark the order paid
+    for (let i = 0; i < retries && r.status === "ACTIVE"; i++) {
+      await new Promise((ok) => setTimeout(ok, 3000));
+      r = await api("/billing/verify", { method: "POST", body: { orderId } });
+    }
     if (r.status === "PAID") { setMsg({ ok: true, text: `Payment received. ${planName || "Your"} plan is active.` }); await refresh(); await loadHistory(); }
     else if (r.status === "ACTIVE") setMsg({ ok: false, text: "Payment was not completed. You have not been charged." });
     else setMsg({ ok: false, text: `Payment status: ${r.status}. If money was deducted it will be confirmed automatically within a few minutes.` });
@@ -33,7 +38,7 @@ export default function Billing() {
   useEffect(() => {
     loadHistory(); api("/billing/plans").then(setCfg);
     const back = params.get("order_id"); // returned from a redirect-based payment method (UPI app, bank page…)
-    if (back) { setParams({}, { replace: true }); confirm(back).catch((e) => setMsg({ ok: false, text: e.message })); }
+    if (back) { setParams({}, { replace: true }); confirm(back, null, 5).catch((e) => setMsg({ ok: false, text: e.message })); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const buy = async (plan) => {
@@ -50,9 +55,9 @@ export default function Billing() {
       const result = await cashfree.checkout({ paymentSessionId: o.paymentSessionId, redirectTarget: "_modal" });
       if (result?.error && !result?.paymentDetails) {
         // window closed or failed: still ask the server, in case the payment went through
-        await confirm(o.orderId, plan.name).catch(() => {});
+        await confirm(o.orderId, plan.name, 2).catch(() => {});
         if (result.error.message) setMsg((m) => m || { ok: false, text: result.error.message });
-      } else await confirm(o.orderId, plan.name);
+      } else await confirm(o.orderId, plan.name, 5);
     } catch (e) { setMsg({ ok: false, text: e.message }); }
     setBusy("");
   };
