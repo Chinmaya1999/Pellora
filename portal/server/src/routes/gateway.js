@@ -26,7 +26,7 @@ playground.post("/analyze", requireAuth, parse, (req, res, next) => {
 
 // Live framing check for auto-capture: free, but throttled per user.
 playground.post("/check", requireAuth, parse, async (req, res) => {
-  if (checkRate(`pg:${req.user.id}`, 300)) return res.status(429).json({ ready: false, message: "Slow down" });
+  if (checkRate(`pg:${req.user.id}`, 400)) return res.status(429).json({ ready: false, message: "Slow down" });
   if (!req.file) return res.status(400).json({ ready: false, message: "No frame" });
   try { res.json(await framingCheck(req.file)); }
   catch { res.status(502).json({ ready: false, message: "Engine unavailable" }); }

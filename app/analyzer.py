@@ -26,6 +26,11 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS = os.path.join(BASE, "models")
 U = 100.0  # normalised inter-eye distance in pixels
 
+# live auto-capture thresholds (tuned on test frames; adjust if your cameras differ)
+SHARP_MIN = 55.0     # Laplacian variance of the face at 128x154 (sharp frames read 200+, blurred ones < 50)
+DARK_MIN = 72        # mean grey level of the face
+BRIGHT_MAX = 215
+
 METRICS = [
     "spots", "pores", "texture", "redness", "dark_circles", "wrinkles", "acne",
     "oiliness", "moisture", "firmness", "radiance", "eye_bags",
@@ -462,46 +467,134 @@ class SkinAnalyzer:
         return "none" if concern < 20 else "mild" if concern < 45 else "moderate" if concern < 70 else "severe"
 
     # ----------------------------------------------------------- live check
+    # The on-screen guide oval (static/ + portal playground CSS: inset 12% 20% 14% of a 3:4 stage).
+    OVAL = (0.50, 0.49, 0.30, 0.37)  # centre x, centre y, radius x, radius y (fractions of the view)
+
+    def _glasses_score(self, img, lm, face=None) -> float:
+        """>1 means eyeglasses likely. Edge energy on the nose bridge + a ring around each eye."""
+        face = face or self._normalise(img, lm)
+        L = face.lm
+        g = cv2.GaussianBlur(cv2.cvtColor(face.img, cv2.COLOR_BGR2GRAY), (3, 3), 0)
+        x0, x1 = int(L[39, 0] + 0.04 * U), int(L[42, 0] - 0.04 * U)
+        y0, y1 = int(min(L[39, 1], L[42, 1]) - 0.12 * U), int(max(L[39, 1], L[42, 1]) + 0.22 * U)
+        roi = g[max(0, y0):y1, max(0, x0):x1]
+        if roi.size == 0:
+            return 0.0
+        bridge = float(cv2.Canny(roi, 40, 110).mean() / 255)
+        inner = np.zeros(g.shape, np.uint8)
+        for idx in (range(36, 42), range(42, 48)):
+            cv2.fillPoly(inner, [np.round(L[list(idx)]).astype(np.int32)], 255)
+        big = cv2.dilate(inner, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(0.62 * U) | 1, int(0.50 * U) | 1)))
+        small = cv2.dilate(inner, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (int(0.22 * U) | 1, int(0.18 * U) | 1)))
+        band = cv2.subtract(big, small) > 0
+        rim = float((cv2.Canny(g, 40, 110)[band] > 0).mean()) if band.any() else 0.0
+        # measured: bare faces ~ bridge 0.03 / rim 0.05-0.07 ; glasses ~ bridge 0.09-0.14 / rim 0.13-0.15
+        return max(min(bridge / 0.07, rim / 0.105), bridge / 0.13, rim / 0.16)
+
     def check(self, img: np.ndarray) -> dict:
-        """Fast framing check for live camera auto-capture. Returns {ready, message}."""
+        """Live framing check for auto-capture. `img` is the camera view cropped like the on-screen stage (3:4).
+        Returns {ready, code, message, checks{...}} - `message` is short enough to show AND speak."""
         h, w = img.shape[:2]
-        self.detector.setInputSize((w, h))
-        _, faces = self.detector.detect(img)
-        if faces is None or len(faces) == 0:
-            return {"ready": False, "message": "No face found - face the camera"}
-        box = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)[0]
-        x, y, bw, bh = [float(v) for v in box[:4]]
-        # inside the on-screen oval (centre region of the frame)
-        cx, cy = (x + bw / 2) / w, (y + bh / 2) / h
-        if abs(cx - 0.5) > 0.12 or abs(cy - 0.48) > 0.12:
-            return {"ready": False, "message": "Centre your face in the oval"}
-        if bh / h < 0.32:
-            return {"ready": False, "message": "Move closer"}
-        if bh / h > 0.62:
-            return {"ready": False, "message": "Move back a little"}
+        checks = {"circle": False, "pose": False, "eyes": False, "glasses": False, "light": False, "sharp": False}
+
+        def out(code, msg, ready=False, **extra):
+            return {"ready": ready, "code": code, "message": msg, "checks": dict(checks), **extra}
+
+        try:
+            box = self._detect(img)
+        except AnalysisError:
+            return out("no_face", "I can't see your face. Look at the camera")
         try:
             lm = self._landmarks(img, box)
         except AnalysisError:
-            return {"ready": False, "message": "Hold still"}
+            return out("hold_still", "Hold still")
         le, re = lm[36:42].mean(0), lm[42:48].mean(0)
         ipd = float(np.linalg.norm(re - le))
-        if ipd < 1:
-            return {"ready": False, "message": "Hold still"}
-        roll = abs(math.degrees(math.atan2(re[1] - le[1], re[0] - le[0])))
-        if roll > 8:
-            return {"ready": False, "message": "Keep your head level"}
+        if ipd < 8:
+            return out("hold_still", "Hold still")
+
+        # ---- 1. face fully inside the circle, right size
+        # Uses the detector box (steady even with glasses / slight blur) plus the jaw & chin points.
+        cx, cy, rx, ry = self.OVAL
+        bx, by, bw, bh = [float(v) for v in box[:4]]
+        size = bw / w / (2 * rx)                       # face width vs circle width
+        ox = ((bx + bw / 2) / w - cx) / rx             # + : face is right of centre in the frame
+        oy = ((by + bh / 2) / h - cy) / ry             # + : face is low
+        jaw = lm[[0, 8, 16]]
+        e_jaw = (((jaw[:, 0] / w - cx) / rx) ** 2 + ((jaw[:, 1] / h - cy) / ry) ** 2).max()
+        top_out = (by / h) < (cy - ry) - 0.02          # forehead above the circle
+        # the screen is mirrored, so a face on the frame's right shows on the screen's left
+        if size < 0.60:
+            return out("too_far", "Move a little closer")
+        if size > 1.05:
+            return out("too_close", "Move back a little")
+        if abs(ox) > 0.18:
+            return out("off_center", "Move to your right" if ox > 0 else "Move to your left")
+        if abs(oy) > 0.16 or top_out:
+            return out("off_center", "Move your face up" if oy > 0 else "Move your face down")
+        if e_jaw > 1.12:  # centred but the jaw touches the circle edge: a bit too big
+            return out("too_close", "Move back a little")
+        checks["circle"] = True
+
+        # ---- 2. pose: straight, level, not tilted up/down
         yaw = abs(lm[30, 0] - (le[0] + re[0]) / 2) / ipd
-        if yaw > 0.12:
-            return {"ready": False, "message": "Look straight at the camera"}
-        if (self._ear(lm[36:42]) + self._ear(lm[42:48])) / 2 < 0.15:
-            return {"ready": False, "message": "Keep your eyes open"}
-        if abs(lm[66, 1] - lm[62, 1]) / ipd > 0.12:
-            return {"ready": False, "message": "Relax your mouth"}
+        roll = abs(math.degrees(math.atan2(re[1] - le[1], re[0] - le[0])))
+        eye_y = (le[1] + re[1]) / 2
+        pitch = (lm[33, 1] - eye_y) / max(1.0, (lm[8, 1] - eye_y))
+        if yaw > 0.13:
+            return out("turned", "Look straight at the camera")
+        if roll > 6:
+            return out("tilted", "Keep your head level")
+        if pitch < 0.40:
+            return out("pitch_down", "Lift your chin a little")
+        if pitch > 0.66:
+            return out("pitch_up", "Lower your chin a little")
+        checks["pose"] = True
+
+        # ---- 3. eyeglasses
+        gscore = self._glasses_score(img, lm)
+        if gscore >= 1.0:
+            return out("glasses", "Please take off your glasses", glasses_score=round(gscore, 2))
+        checks["glasses"] = True
+
+        # ---- 4. eyes open, neutral mouth
+        if (self._ear(lm[36:42]) + self._ear(lm[42:48])) / 2 < 0.17:
+            return out("eyes_closed", "Open your eyes wide")
+        checks["eyes"] = True
+
+        # ---- 5. lighting
         g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        x0, y0 = max(int(x), 0), max(int(y), 0)
-        if float(np.median(g[y0:int(y + bh), x0:int(x + bw)])) < 70:
-            return {"ready": False, "message": "Too dark - face a light"}
-        return {"ready": True, "message": "Perfect - hold still"}
+        x0, x1 = int(lm[1, 0]), int(lm[15, 0])
+        forehead = np.array([(lm[19, 0] + lm[24, 0]) / 2, lm[17:27, 1].min() - 0.45 * ipd])
+        y0, y1 = int(forehead[1]), int(lm[8, 1])
+        face_g = g[max(0, y0):y1, max(0, x0):x1]
+        if face_g.size == 0:
+            return out("hold_still", "Hold still")
+        mean_l = float(face_g.mean())
+        side = max(6, int(0.30 * ipd))
+        def patch(px, py):
+            px, py = int(px), int(py)
+            return float(g[max(0, py - side // 2):py + side // 2, max(0, px - side // 2):px + side // 2].mean())
+        cheek_y = eye_y + 0.55 * ipd
+        halves = (patch((lm[2, 0] + lm[31, 0]) / 2, cheek_y), patch((lm[14, 0] + lm[35, 0]) / 2, cheek_y))
+        bg = np.concatenate([g[: int(0.08 * h)].ravel(), g[:, : int(0.08 * w)].ravel(), g[:, int(0.92 * w):].ravel()])
+        if mean_l < DARK_MIN:
+            return out("dark", "It's too dark. Face a light or window", brightness=round(mean_l))
+        if mean_l > BRIGHT_MAX:
+            return out("bright", "Too bright. Move away from the strong light", brightness=round(mean_l))
+        if abs(halves[0] - halves[1]) > 40:
+            return out("uneven", "Light is uneven. Face the light straight on", brightness=round(mean_l))
+        if float(bg.mean()) > 150 and mean_l < 0.62 * float(bg.mean()):
+            return out("backlit", "The light is behind you. Turn to face it", brightness=round(mean_l))
+        checks["light"] = True
+
+        # ---- 6. clarity (sharp face, camera focused)
+        crop = cv2.resize(face_g, (128, 154), interpolation=cv2.INTER_AREA)  # fixed size => same scale at any camera resolution
+        sharp = float(cv2.Laplacian(crop, cv2.CV_64F).var())
+        if sharp < SHARP_MIN:
+            return out("blurry", "The picture is blurry. Hold still", sharpness=round(sharp, 1))
+        checks["sharp"] = True
+        return out("ready", "Perfect. Hold still", ready=True, sharpness=round(sharp, 1), brightness=round(mean_l), glasses_score=round(gscore, 2))
 
     # ------------------------------------------------------------------- run
     def analyze(self, img: np.ndarray, want_overlay: bool = False, want_overlays: bool = False) -> dict:

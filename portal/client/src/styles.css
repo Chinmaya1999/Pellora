@@ -325,3 +325,18 @@ html,body{overflow-x:hidden}
 
 .phone-row{display:block;max-width:360px;margin:6px 0 14px;font-size:14px;font-weight:600}
 .phone-row input{display:block;width:100%;margin-top:6px}.phone-row small{display:block;margin-top:4px;font-weight:400}
+
+/* auto-capture guidance */
+.oval{transition:border-color .2s,box-shadow .2s}
+.oval.warn{border-color:#fbbf24;border-style:dashed}
+.oval.ok{border-color:#22c55e;border-style:solid;box-shadow:0 0 0 4px rgba(34,197,94,.25),0 0 40px rgba(34,197,94,.35)}
+.hint{font-size:17px;background:linear-gradient(transparent,rgba(0,0,0,.55));bottom:0;padding:26px 12px 14px}
+.hint.good{color:#86efac}
+.voice-btn{position:absolute;top:12px;left:12px;width:38px;height:38px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;display:grid;place-items:center;cursor:pointer;backdrop-filter:blur(6px)}
+.voice-btn.off{opacity:.65}.voice-btn:hover{background:var(--brand)}
+.checklist{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;padding:0;margin:12px 0 0;font-size:13px}
+.checklist li{display:flex;align-items:center;gap:8px;color:var(--muted);font-weight:500}
+.checklist i{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;font-style:normal;font-size:12px;font-weight:800;background:var(--line);color:var(--muted);flex:none;transition:.2s}
+.checklist li.ok{color:var(--ink)}.checklist li.ok i{background:#16a34a;color:#fff}
+.checklist li.bad{color:var(--ink);font-weight:700}.checklist li.bad i{background:#f59e0b;color:#fff}
+.tips2{margin:14px 0 0;padding-left:18px;font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:5px}
