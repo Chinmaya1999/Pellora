@@ -38,7 +38,7 @@ export function Nav() {
     return () => window.removeEventListener("scroll", on);
   }, []);
   useEffect(() => setOpen(false), [pathname, hash]);
-  const onDark = (pathname === "/" || pathname === "/pricing") && !scrolled && !open; // these pages open with a dark hero
+  const onDark = pathname === "/pricing" && !scrolled && !open; // only the pricing page still opens with a dark hero
   return (
     <header className={`nav ${scrolled ? "scrolled" : ""} ${onDark ? "on-dark" : ""} ${open ? "open" : ""}`}>
       <div className="wrap nav-in">

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Code, { curlExample, jsExample, pyExample } from "../components/Code";
 import PlanCards from "../components/PlanCards";
-import ScanVisual from "../components/ScanVisual";
+import HeroShowcase from "../components/HeroShowcase";
 import MetricFace from "../components/MetricFace";
 import CaptureVisual from "../components/CaptureVisual";
 import { Reveal, CountUp } from "../components/Reveal";
@@ -77,22 +77,19 @@ export default function Landing() {
   return (
     <main>
       {/* ================= hero ================= */}
-      <section className="h-hero">
-        <div className="mesh" aria-hidden><i /><i /><i /></div>
-        <div className="grid-bg" aria-hidden />
-        <div className="wrap h-in">
-          <div className="h-copy">
-            <span className="h-pill"><b>New</b> Visual masks for every skin parameter</span>
-            <h1>Skin analysis that <span className="grad-text">sees what your customers feel</span></h1>
-            <p className="h-lead">{BRAND} turns a single selfie into up to 15 scored skin concerns, each with a visual mask, through one REST call. Add personalised skincare to your store, clinic or app in an afternoon.</p>
-            <div className="h-cta">
-              <Link className="btn lg" to="/signup">Get your free API key</Link>
-              <Link className="btn lg glass" to="/docs">Read the docs →</Link>
-            </div>
-            <ul className="h-points"><li>150 free scans / month</li><li>No credit card</li><li>API key in 30 seconds</li></ul>
+      <section className="hero2">
+        <div className="hero2-bg" aria-hidden><i /><i /><i /></div>
+        <div className="wrap hero2-in">
+          <span className="h2-pill"><b>New</b> Visual masks for every skin parameter <span aria-hidden>→</span></span>
+          <h1>Skin analysis that <span className="grad-text2">sees what your customers feel</span></h1>
+          <p className="h2-lead">{BRAND} turns a single selfie into up to 15 scored skin concerns, each with its own visual mask, through one REST call. Add personalised skincare to your store, clinic or app in an afternoon.</p>
+          <div className="h2-cta">
+            <Link className="btn lg" to="/signup">Get your free API key</Link>
+            <Link className="btn lg ghost" to="/docs">Read the docs →</Link>
           </div>
-          <div className="h-visual"><ScanVisual /></div>
+          <ul className="h2-points"><li>150 free scans / month</li><li>No credit card</li><li>API key in 30 seconds</li></ul>
         </div>
+        <div className="wrap"><HeroShowcase /></div>
       </section>
 
       <section className="marq" aria-label="Measured skin concerns">
