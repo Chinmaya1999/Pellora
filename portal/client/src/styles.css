@@ -322,3 +322,6 @@ html,body{overflow-x:hidden}
 .filters{display:flex;gap:8px}.filters select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
 .tscroll{overflow-x:auto}.table td{white-space:nowrap}
 .tag{background:var(--brand-soft);color:var(--brand);font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px}
+
+.phone-row{display:block;max-width:360px;margin:6px 0 14px;font-size:14px;font-weight:600}
+.phone-row input{display:block;width:100%;margin-top:6px}

@@ -17,10 +17,13 @@ export const config = {
   // The Python skin-analysis engine (kept private; only this server calls it)
   engineUrl: (env.ENGINE_URL || "http://127.0.0.1:8000").replace(/\/$/, ""),
   engineKey: env.ENGINE_KEY || "",
-  razorpayKeyId: env.RAZORPAY_KEY_ID || "",
-  razorpayKeySecret: env.RAZORPAY_KEY_SECRET || "",
-  razorpayWebhookSecret: env.RAZORPAY_WEBHOOK_SECRET || "",
+  // Cashfree Payment Gateway (https://merchant.cashfree.com). CASHFREE_ENV: "sandbox" (test keys) or "production" (live keys)
+  cashfreeAppId: env.CASHFREE_APP_ID || "",
+  cashfreeSecret: env.CASHFREE_SECRET_KEY || "",
+  cashfreeEnv: env.CASHFREE_ENV === "production" ? "production" : "sandbox",
+  publicUrl: (env.PUBLIC_URL || "http://localhost:5173").replace(/\/$/, ""),
+  apiPublicUrl: (env.API_PUBLIC_URL || "").replace(/\/$/, ""),
   brand: env.BRAND_NAME || "Pellora",
 };
 
-export const razorpayEnabled = Boolean(config.razorpayKeyId && config.razorpayKeySecret);
+export const paymentsEnabled = Boolean(config.cashfreeAppId && config.cashfreeSecret);

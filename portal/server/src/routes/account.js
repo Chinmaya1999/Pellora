@@ -15,7 +15,7 @@ const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 export const publicUser = (u) => {
   const plan = effectivePlan(u);
-  return { id: u.id, name: u.name, email: u.email, company: u.company, plan: plan.id, planName: plan.name, planExpiresAt: u.planExpiresAt };
+  return { id: u.id, name: u.name, email: u.email, company: u.company, phone: u.phone, plan: plan.id, planName: plan.name, planExpiresAt: u.planExpiresAt };
 };
 
 r.post("/auth/signup", authLimiter, async (req, res) => {

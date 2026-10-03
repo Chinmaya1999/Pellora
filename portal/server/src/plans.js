@@ -1,4 +1,4 @@
-// Edit prices / limits here. Prices are in INR (rupees); Razorpay gets paise.
+// Edit prices / limits here. Prices are in INR (rupees); the payment gateway gets the amount in rupees.
 // Credits: 1 scan = 1 credit, with the AI second opinion = 2 credits. Failed scans cost nothing.
 // Each plan has a DAILY and a MONTHLY credit cap (null = unlimited). Edit freely.
 export const CREDIT_COST = { scan: 1, ai: 2 };

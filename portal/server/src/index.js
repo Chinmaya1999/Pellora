@@ -7,14 +7,14 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
-import { config, razorpayEnabled } from "./config.js";
+import { config, paymentsEnabled } from "./config.js";
 import account from "./routes/account.js";
 import billing, { webhook } from "./routes/billing.js";
 import { publicApi, playground } from "./routes/gateway.js";
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(helmet({ contentSecurityPolicy: false })); // Razorpay checkout loads its own script/iframe
+app.use(helmet({ contentSecurityPolicy: false })); // payment checkout loads its own script/iframe
 
 // Customer API: any origin (keys authenticate); dashboard API: our own origin only.
 app.use("/v1", cors(), publicApi);
@@ -41,5 +41,5 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 
 await mongoose.connect(config.mongoUri);
 app.listen(config.port, () => {
-  console.log(`Portal API on :${config.port} | engine ${config.engineUrl} | payments: ${razorpayEnabled ? "Razorpay" : "DEV mock"}`);
+  console.log(`Portal API on :${config.port} | engine ${config.engineUrl} | payments: ${paymentsEnabled ? `Cashfree (${config.cashfreeEnv})` : "DEV mock"}`);
 });

@@ -13,7 +13,7 @@ export default function Pricing() {
   return (
     <main className="wrap section">
       <h1 className="center-t">Pricing</h1>
-      <p className="lead center-t">Pay for credits, not seats. Prices in INR, billed through Razorpay (UPI, cards, netbanking).</p>
+      <p className="lead center-t">Pay for credits, not seats. Prices in INR, billed securely through Cashfree (UPI, cards, netbanking, wallets).</p>
       <PlanCards action={(p) => p.contact
         ? <a className="btn ghost block" href={`mailto:${SALES_EMAIL}`}>Contact sales</a>
         : <Link className={`btn block ${p.popular ? "" : "ghost"}`} to="/signup">{p.priceInr ? `Choose ${p.name}` : "Start free"}</Link>} />

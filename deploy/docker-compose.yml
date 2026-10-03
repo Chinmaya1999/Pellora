@@ -36,9 +36,11 @@ services:
       ENGINE_URL: http://engine:8000
       ENGINE_KEY: ${ENGINE_KEY}
       BRAND_NAME: Pellora
-      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
-      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
-      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      PUBLIC_URL: https://pellora.cmcloud.online
+      API_PUBLIC_URL: https://apipellora.cmcloud.online
+      CASHFREE_APP_ID: ${CASHFREE_APP_ID:-}
+      CASHFREE_SECRET_KEY: ${CASHFREE_SECRET_KEY:-}
+      CASHFREE_ENV: ${CASHFREE_ENV:-sandbox}
     depends_on:
       mongo: { condition: service_healthy }
       engine: { condition: service_healthy }

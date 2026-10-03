@@ -1,7 +1,7 @@
 # Pellora Portal (MERN)
 
 Sells the Python skin-analysis engine as an API: landing, pricing, docs, signup/login,
-API keys, usage metering, Razorpay billing, and a camera playground with auto-capture.
+API keys, usage metering, Cashfree billing, and a camera playground with auto-capture.
 
 ```
 customer app --X-API-Key--> Express gateway (:4000) --ENGINE_KEY--> Python engine (:8000, private)
@@ -28,11 +28,13 @@ cd ../server && NODE_ENV=production npm start   # http://localhost:4000
 ```
 Put it behind HTTPS (nginx/Caddy/Cloudflare). Production refuses to start without a strong `JWT_SECRET`.
 
-## Razorpay
-Fill `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in `server/.env`. Without them the portal runs a
-**test mode** where "Upgrade" activates a plan with no payment (disabled in production).
-Webhook (recommended): Razorpay dashboard -> Webhooks -> `https://YOURDOMAIN/api/billing/webhook`,
-event `payment.captured`, secret = `RAZORPAY_WEBHOOK_SECRET`.
+## Payments (Cashfree)
+Set `CASHFREE_APP_ID`, `CASHFREE_SECRET_KEY` and `CASHFREE_ENV` (`sandbox` for test keys, `production` for live keys)
+in `server/.env` (on the live server: `/opt/pellora/.env`, then `docker compose up -d server`).
+Without keys the portal runs a **test mode** where "Upgrade" activates a plan with no payment (disabled in production).
+Every payment is confirmed server-side with Cashfree before a plan is activated. Webhook (recommended, so a plan
+activates even if the customer closes the tab): Cashfree dashboard -> Developers -> Webhooks ->
+`https://apipellora.cmcloud.online/api/billing/webhook`, event `PAYMENT_SUCCESS_WEBHOOK`.
 
 ## Edit plans / prices
 `server/src/plans.js` (INR, scan limits, rate limits, AI access). Brand name: `client/src/components/Layout.jsx`
