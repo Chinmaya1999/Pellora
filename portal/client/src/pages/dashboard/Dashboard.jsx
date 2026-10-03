@@ -13,6 +13,7 @@ export default function Dashboard() {
         <nav>
           {LINKS.map(([to, label, end]) => <NavLink key={to} to={to} end={end}>{label}</NavLink>)}
           <Link to="/docs">API docs ↗</Link>
+          {user.role === "admin" && <Link to="/admin">Admin panel →</Link>}
         </nav>
         <div className="side-foot">
           <div className="small"><b>{user.name}</b><br /><span className="muted">{user.email}</span></div>

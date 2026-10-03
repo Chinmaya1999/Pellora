@@ -15,7 +15,7 @@ export default function AuthPage({ mode }) {
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
 
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={user.role === "admin" ? "/admin" : "/dashboard"} replace />;
 
   const submit = async (e) => {
     e.preventDefault(); setErr(""); setBusy(true);
@@ -23,7 +23,7 @@ export default function AuthPage({ mode }) {
       if (isSignup) {
         const d = await signup(f);
         sessionStorage.setItem("firstKey", d.firstKey); // shown once on the dashboard
-      } else await login(f.email, f.password);
+      } else { const d = await login(f.email, f.password); return nav(d.user.role === "admin" ? "/admin" : "/dashboard"); }
       nav("/dashboard");
     } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
   };

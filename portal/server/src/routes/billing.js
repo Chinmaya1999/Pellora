@@ -1,7 +1,7 @@
 import { Router } from "express";
 import crypto from "crypto";
 import { config, paymentsEnabled } from "../config.js";
-import { PLANS, PLAN_DAYS, publicPlans } from "../plans.js";
+import { getPlan, planDays, publicPlans } from "../plans.js";
 import { User, Payment } from "../models/index.js";
 import { requireAuth } from "../middleware/auth.js";
 
@@ -35,13 +35,13 @@ async function fulfil(orderId, paymentId) {
   const stillActive = user.plan === pay.plan && user.planExpiresAt && user.planExpiresAt > new Date();
   const from = stillActive ? user.planExpiresAt : new Date();
   user.plan = pay.plan;
-  user.planExpiresAt = new Date(from.getTime() + PLAN_DAYS * 86400000);
+  user.planExpiresAt = new Date(from.getTime() + planDays() * 86400000);
   await user.save();
   return true;
 }
 
 /** Ask Cashfree (source of truth) whether an order is paid, and activate the plan if so. */
-async function settle(orderId) {
+export async function settle(orderId) {
   const pay = await Payment.findOne({ orderId });
   if (!pay) return { status: "unknown" };
   if (pay.status === "paid") return { status: "PAID" };
@@ -67,8 +67,8 @@ r.get("/plans", (req, res) => res.json({
 }));
 
 r.post("/order", requireAuth, async (req, res) => {
-  const plan = PLANS[req.body?.plan];
-  if (!plan || !plan.priceInr) return res.status(400).json({ message: "Choose a paid plan." });
+  const plan = getPlan(req.body?.plan);
+  if (!plan || !plan.active || plan.contact || !plan.priceInr) return res.status(400).json({ message: "Choose a paid plan." });
   const amountPaise = plan.priceInr * 100;
 
   if (!paymentsEnabled) { // development without Cashfree keys
@@ -90,7 +90,7 @@ r.post("/order", requireAuth, async (req, res) => {
       return_url: `${config.publicUrl}/dashboard/billing?order_id={order_id}`,
       ...(config.apiPublicUrl && { notify_url: `${config.apiPublicUrl}/api/billing/webhook` }),
     },
-    order_note: `${plan.name} plan - ${PLAN_DAYS} days`,
+    order_note: `${plan.name} plan - ${planDays()} days`,
   });
   await Payment.create({ user: req.user._id, plan: plan.id, amountPaise, orderId });
   res.json({ orderId, paymentSessionId: order.payment_session_id, mode: config.cashfreeEnv, plan: plan.id, planName: plan.name });

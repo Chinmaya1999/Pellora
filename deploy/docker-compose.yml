@@ -41,6 +41,8 @@ services:
       CASHFREE_APP_ID: ${CASHFREE_APP_ID:-}
       CASHFREE_SECRET_KEY: ${CASHFREE_SECRET_KEY:-}
       CASHFREE_ENV: ${CASHFREE_ENV:-sandbox}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     depends_on:
       mongo: { condition: service_healthy }
       engine: { condition: service_healthy }

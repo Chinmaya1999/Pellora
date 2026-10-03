@@ -5,7 +5,7 @@ import { User, ApiKey, UsageLog } from "../models/index.js";
 import { setSession, clearSession, requireAuth, generateKey } from "../middleware/auth.js";
 import { effectivePlan } from "../plans.js";
 import { usedNow, nextDayReset, nextMonthReset, dailySeries } from "../usage.js";
-import { CREDIT_COST } from "../plans.js";
+import { creditCost } from "../plans.js";
 
 const r = Router();
 const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 30, standardHeaders: true, legacyHeaders: false,
@@ -18,7 +18,7 @@ const phoneOk = (p) => /^[6-9]\d{9}$/.test(p);
 
 export const publicUser = (u) => {
   const plan = effectivePlan(u);
-  return { id: u.id, name: u.name, email: u.email, company: u.company, phone: u.phone, plan: plan.id, planName: plan.name, planExpiresAt: u.planExpiresAt };
+  return { id: u.id, name: u.name, email: u.email, company: u.company, phone: u.phone, plan: plan.id, planName: plan.name, planExpiresAt: u.planExpiresAt, role: u.role };
 };
 
 r.post("/auth/signup", authLimiter, async (req, res) => {
@@ -43,8 +43,18 @@ r.post("/auth/login", authLimiter, async (req, res) => {
   if (!user || !(await bcrypt.compare(password || "", user.passwordHash))) {
     return res.status(401).json({ message: "Wrong email or password." });
   }
+  if (user.disabled) return res.status(403).json({ message: "This account has been disabled. Contact support." });
+  user.lastLoginAt = new Date(); await user.save();
   setSession(res, user._id);
   res.json({ user: publicUser(user) });
+});
+
+r.post("/auth/change-password", requireAuth, async (req, res) => {
+  const { current, next } = req.body || {};
+  if (!(await bcrypt.compare(current || "", req.user.passwordHash))) return res.status(400).json({ message: "Current password is wrong." });
+  if (!next || next.length < 8) return res.status(400).json({ message: "New password must be at least 8 characters." });
+  req.user.passwordHash = await bcrypt.hash(next, 11); await req.user.save();
+  res.json({ ok: true });
 });
 
 r.post("/auth/logout", (req, res) => { clearSession(res); res.json({ ok: true }); });
@@ -56,7 +66,7 @@ r.get("/usage", requireAuth, async (req, res) => {
   const plan = effectivePlan(req.user);
   const used = await usedNow(req.user._id);
   res.json({
-    plan: plan.id, planName: plan.name, costs: CREDIT_COST,
+    plan: plan.id, planName: plan.name, costs: creditCost(),
     day: { used: used.day, limit: plan.dailyCredits, remaining: left(plan.dailyCredits, used.day), resetsAt: nextDayReset() },
     month: { used: used.month, limit: plan.monthlyCredits, remaining: left(plan.monthlyCredits, used.month), resetsAt: nextMonthReset() },
     daily: await dailySeries(req.user._id, 30),

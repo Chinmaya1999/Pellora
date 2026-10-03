@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { CREDIT_COST } from "./plans.js";
+import { creditCost } from "./plans.js";
 import { consume, refund, logUsage, nextDayReset, nextMonthReset } from "./usage.js";
 
 function toForm(file, fields) {
@@ -29,7 +29,7 @@ export async function metered(req, res) {
   if (!file) return reject(400, "missing_image", "Send the photo as multipart field 'image'.");
   if (wantsAi && !plan.ai) return reject(403, "plan_upgrade_required", `AI second opinion needs the Growth plan or higher (you are on ${plan.name}).`);
 
-  const cost = wantsAi ? CREDIT_COST.ai : CREDIT_COST.scan;
+  const cost = wantsAi ? creditCost().ai : creditCost().scan;
   const taken = await consume(user._id, plan, cost);
   if (!taken.ok) {
     res.set("Retry-After", String(Math.ceil(((taken.reason === "daily" ? nextDayReset() : nextMonthReset()) - Date.now()) / 1000)));

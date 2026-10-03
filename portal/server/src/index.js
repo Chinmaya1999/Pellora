@@ -11,6 +11,9 @@ import { config, paymentsEnabled } from "./config.js";
 import account from "./routes/account.js";
 import billing, { webhook } from "./routes/billing.js";
 import { publicApi, playground } from "./routes/gateway.js";
+import admin from "./routes/admin.js";
+import { loadConfig } from "./plans.js";
+import { seedAdmin } from "./seed.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -25,6 +28,7 @@ app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 app.use("/api/playground", playground);
 app.use("/api/billing", billing);
+app.use("/api/admin", admin);
 app.use("/api", account);
 
 // Serve the built React app in production
@@ -40,6 +44,8 @@ app.use((err, req, res, next) => { // eslint-disable-line no-unused-vars
 });
 
 await mongoose.connect(config.mongoUri);
+await loadConfig();   // plans + settings (editable from the admin dashboard)
+await seedAdmin();
 app.listen(config.port, () => {
   console.log(`Portal API on :${config.port} | engine ${config.engineUrl} | payments: ${paymentsEnabled ? `Cashfree (${config.cashfreeEnv})` : "DEV mock"}`);
 });

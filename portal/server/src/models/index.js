@@ -9,6 +9,9 @@ const userSchema = new Schema({
   passwordHash: { type: String, required: true },
   plan: { type: String, default: "free" },
   planExpiresAt: { type: Date, default: null },
+  role: { type: String, enum: ["user", "admin"], default: "user" },
+  disabled: { type: Boolean, default: false },
+  lastLoginAt: { type: Date, default: null },
 }, { timestamps: true });
 
 const apiKeySchema = new Schema({
@@ -45,7 +48,37 @@ const paymentSchema = new Schema({
   paymentId: String,
   status: { type: String, enum: ["created", "paid"], default: "created" },
   mock: { type: Boolean, default: false },
+  manual: { type: Boolean, default: false }, // recorded by an admin (cash / UPI / bank transfer)
+  note: { type: String, default: "" },
 }, { timestamps: true });
+
+// Plans are editable by the admin (prices, credit caps, rate limits, features).
+const planSchema = new Schema({
+  id: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  name: { type: String, required: true, trim: true, maxlength: 40 },
+  priceInr: { type: Number, default: null },        // null = contact sales
+  dailyCredits: { type: Number, default: null },    // null = unlimited
+  monthlyCredits: { type: Number, default: null },
+  rpm: { type: Number, default: 10 },
+  ai: { type: Boolean, default: false },
+  blurb: { type: String, default: "", maxlength: 160 },
+  extraFeatures: { type: [String], default: [] },
+  popular: { type: Boolean, default: false },
+  contact: { type: Boolean, default: false },
+  active: { type: Boolean, default: true },          // hidden plans can't be bought but existing users keep them
+  order: { type: Number, default: 100 },
+}, { timestamps: true });
+
+const settingSchema = new Schema({ key: { type: String, unique: true }, value: Schema.Types.Mixed }, { timestamps: true });
+
+const auditSchema = new Schema({
+  admin: { type: Schema.Types.ObjectId, ref: "User" },
+  adminEmail: String,
+  action: String,
+  target: String,
+  detail: Schema.Types.Mixed,
+  at: { type: Date, default: Date.now, index: true },
+});
 
 // One row per API / playground request, for the dashboard "Usage history".
 const logSchema = new Schema({
@@ -69,3 +102,6 @@ export const Usage = model("Usage", usageSchema);
 export const Daily = model("Daily", dailySchema);
 export const Payment = model("Payment", paymentSchema);
 export const UsageLog = model("UsageLog", logSchema);
+export const Plan = model("Plan", planSchema);
+export const Setting = model("Setting", settingSchema);
+export const AdminLog = model("AdminLog", auditSchema);

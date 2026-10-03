@@ -21,6 +21,7 @@ export async function requireAuth(req, res, next) {
     const { sub } = jwt.verify(token, config.jwtSecret);
     const user = await User.findById(sub);
     if (!user) return res.status(401).json({ error: "unauthenticated", message: "Please log in." });
+    if (user.disabled) return res.status(403).json({ error: "account_disabled", message: "This account has been disabled. Contact support." });
     req.user = user;
     next();
   } catch {
@@ -58,6 +59,7 @@ export async function requireApiKey(req, res, next) {
     if (!key) return res.status(401).json({ error: "invalid_api_key", message: "Invalid or revoked API key." });
     const user = await User.findById(key.user);
     if (!user) return res.status(401).json({ error: "invalid_api_key", message: "Invalid or revoked API key." });
+    if (user.disabled) return res.status(403).json({ error: "account_disabled", message: "This account has been disabled. Contact support." });
     const plan = effectivePlan(user);
     if (rateLimited(`k:${key.id}`, plan.rpm)) {
       res.set("Retry-After", "10");
@@ -67,4 +69,10 @@ export async function requireApiKey(req, res, next) {
     req.user = user; req.plan = plan; req.keyName = key.name;
     next();
   } catch (e) { next(e); }
+}
+
+/** Admin-only routes (use after requireAuth). */
+export function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") return res.status(403).json({ error: "forbidden", message: "Admins only." });
+  next();
 }
