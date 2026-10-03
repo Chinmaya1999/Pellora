@@ -24,8 +24,11 @@ import AdminSettings from "./pages/admin/Settings";
 function AdminUsersPage() { const { user } = useAuth(); return <AdminUsers me={user} />; }
 
 function Public() {
-  const { pathname } = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  const { pathname, hash } = useLocation();
+  useEffect(() => { // jump to #section links, otherwise start at the top of the new page
+    if (hash) { const t = setTimeout(() => document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" }), 80); return () => clearTimeout(t); }
+    window.scrollTo(0, 0);
+  }, [pathname, hash]);
   const bare = pathname === "/login" || pathname === "/signup"; // auth pages have their own layout
   return (<>{!bare && <Nav />}<Outlet />{!bare && <Footer />}</>);
 }
