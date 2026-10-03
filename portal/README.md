@@ -38,7 +38,7 @@ activates even if the customer closes the tab): Cashfree dashboard -> Developers
 
 ## Edit plans / prices
 `server/src/plans.js` (INR, scan limits, rate limits, AI access). Brand name: `client/src/components/Layout.jsx`
-and `BRAND_NAME` / `index.html`. Replace `sales@example.com` with your email.
+and `BRAND_NAME` / `index.html`. The contact email shown on the site is `SALES_EMAIL` in `client/src/brand.js`.
 
 ## Rules implemented
 - Keys are stored hashed (SHA-256); the full key is shown once.
