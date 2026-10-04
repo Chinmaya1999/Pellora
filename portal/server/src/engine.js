@@ -36,6 +36,9 @@ export async function metered(req, res) {
     if (taken.reason === "daily") {
       return reject(429, "daily_limit_exceeded", `Daily limit of ${plan.dailyCredits} scans reached on the ${plan.name} plan. It resets at midnight (IST), or upgrade for more.`);
     }
+    if (taken.overageAvailable && plan.monthlyCredits === 0) {
+      return reject(402, "wallet_empty", `Recharge your scan credits in the dashboard to scan again (₹${(taken.unit / 100).toFixed(0)} = 1 scan${plan.freeScans ? ", after your free first scan" : ""}).`);
+    }
     return taken.overageAvailable
       ? reject(402, "wallet_empty", `Your ${plan.monthlyCredits} monthly scans are used up. Top up your overage wallet in the dashboard to keep scanning (₹${(taken.unit / 100).toFixed(2)} per scan incl. GST).`)
       : reject(402, "quota_exceeded", `Monthly limit of ${plan.monthlyCredits} scans reached on the ${plan.name} plan. Upgrade to continue.`);
@@ -44,7 +47,7 @@ export async function metered(req, res) {
   if (plan.dailyCredits != null) res.set("X-Credits-Daily-Remaining", String(Math.max(0, plan.dailyCredits - taken.day)));
   if (plan.monthlyCredits != null) res.set("X-Credits-Monthly-Remaining", String(Math.max(0, plan.monthlyCredits - taken.month)));
   if (taken.overage) { res.set("X-Overage-Charge-Paise", String(taken.charged)); res.set("X-Wallet-Balance-Paise", String(taken.wallet)); }
-  const failed = (httpStatus, errorCode) => { refund(user._id, cost, taken.charged || 0); done(httpStatus, "failed", { errorCode, credits: 0 }); };
+  const failed = (httpStatus, errorCode) => { refund(user._id, cost, taken.charged || 0, new Date(), !!taken.free); done(httpStatus, "failed", { errorCode, credits: 0 }); };
 
   try {
     const r = await fetch(`${config.engineUrl}/v1/analyze`, {

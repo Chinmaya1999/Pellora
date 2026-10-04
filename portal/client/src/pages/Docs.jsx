@@ -29,8 +29,8 @@ const ERRORS = [
   ["422", "no_face · face_too_small · too_dark · face_turned · eyes_closed", "Bad photo. Show the message to the user so they can retake it. Not billed."],
   ["429", "rate_limited", "Too many requests per minute. Retry after the Retry-After header."],
   ["429", "daily_limit_exceeded", "Daily request limit of your plan reached. Resets at midnight IST."],
-  ["402", "quota_exceeded", "Monthly scans used up (Free plan). Upgrade or wait for the reset."],
-  ["402", "wallet_empty", "Monthly scans used up and the overage wallet is empty. Top up in the dashboard."],
+  ["402", "quota_exceeded", "Monthly scans used up. Upgrade or wait for the reset."],
+  ["402", "wallet_empty", "Wallet is empty (Free plan: after your first free scan, or paid plans past the monthly scans). Top up in the dashboard."],
   ["502", "engine_unavailable", "Temporary problem on our side. Retry. Not billed."],
 ];
 
@@ -122,6 +122,7 @@ export default function Docs() {
           <li>1 request = 1 scan. With <code>use_ai</code> a request counts as 2 scans.</li>
           <li>Rejected photos (HTTP 422) and errors on our side (5xx) are never charged.</li>
           <li>Every response carries <code>X-Credits-Cost</code>, <code>X-Credits-Daily-Remaining</code> and <code>X-Credits-Monthly-Remaining</code>.</li>
+          <li>Free plan: your first scan is free, then ₹10 per scan (GST included) from a prepaid wallet.</li>
           <li>Paid plans keep working past the monthly scans at the overage rate from a prepaid wallet; those responses add <code>X-Overage-Charge-Paise</code> and <code>X-Wallet-Balance-Paise</code>.</li>
         </ul>
 

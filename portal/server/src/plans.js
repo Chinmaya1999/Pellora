@@ -16,8 +16,8 @@ const TIER12 = [...TIER8, "moisture", "radiance", "eye_bags", "under_eye_hollows
 
 const SOON = " (Coming soon)";
 const DEFAULT_PLANS = [
-  { id: "free", name: "Free", priceInr: 0, dailyCredits: 10, monthlyCredits: 150, rpm: 10, ai: false, order: 1, metrics: TIER4, overageInr: null,
-    blurb: "Build and test. 150 scans a month, forever. No credit card.", extraFeatures: ["Docs and community support"] },
+  { id: "free", name: "Free", priceInr: 0, dailyCredits: 10, monthlyCredits: 0, rpm: 10, ai: false, order: 1, metrics: TIER4, overageInr: 10, overageInclGst: true, freeScans: 1,
+    blurb: "Pay as you go. Your first scan is free, then ₹10 per scan from a prepaid wallet.", extraFeatures: ["Docs and community support"] },
   { id: "starter", name: "Starter", priceInr: 4999, dailyCredits: 500, monthlyCredits: 2500, rpm: 50, ai: false, order: 2, metrics: TIER8, overageInr: 3,
     blurb: "Indie D2C brands: scanning plus basic product recommendations.", extraFeatures: ["Product recommendations (up to 50 SKUs)", "Email support (72h)", "Branching quiz logic" + SOON] },
   { id: "growth", name: "Growth", priceInr: 14999, dailyCredits: 2000, monthlyCredits: 10000, rpm: 150, ai: true, popular: true, order: 3, metrics: TIER12, overageInr: 2.25,
@@ -27,8 +27,8 @@ const DEFAULT_PLANS = [
   { id: "enterprise", name: "Enterprise", priceInr: null, dailyCredits: null, monthlyCredits: null, rpm: 1000, ai: true, contact: true, active: false, order: 9, metrics: [], overageInr: null,
     blurb: "Custom volume, SLA and white-label.", extraFeatures: ["Dedicated support & SLA", "White-label option"] },
 ];
-const DEFAULT_SETTINGS = { creditCost: { scan: 1, ai: 2 }, planDays: 30, gstPercent: 18, topupOptions: [500, 1000, 2500, 5000], topupMin: 500 };
-const DEFAULTS_VERSION = 3; // bump to overwrite the standard plans once on the next start
+const DEFAULT_SETTINGS = { creditCost: { scan: 1, ai: 2 }, planDays: 30, gstPercent: 18, topupOptions: [10, 50, 100, 250], topupMin: 10 };
+const DEFAULTS_VERSION = 5; // bump to overwrite the standard plans once on the next start
 
 let plans = new Map();
 let settings = structuredClone(DEFAULT_SETTINGS);
@@ -37,6 +37,7 @@ const plain = (d) => ({
   id: d.id, name: d.name, priceInr: d.priceInr, dailyCredits: d.dailyCredits, monthlyCredits: d.monthlyCredits,
   rpm: d.rpm, ai: d.ai, blurb: d.blurb, extraFeatures: d.extraFeatures || [], popular: !!d.popular,
   contact: !!d.contact, active: d.active !== false, order: d.order ?? 100, overageInr: d.overageInr ?? null,
+  overageInclGst: !!d.overageInclGst, freeScans: d.freeScans || 0,
   metrics: (d.metrics && d.metrics.length ? d.metrics : METRIC_KEYS).filter((k) => METRIC_KEYS.includes(k)),
 });
 
@@ -45,6 +46,8 @@ export async function loadConfig() {
   const ver = await Setting.findOne({ key: "defaults_version" });
   if (!(await Plan.countDocuments()) || (ver?.value ?? 0) < DEFAULTS_VERSION) {
     for (const p of DEFAULT_PLANS) await Plan.updateOne({ id: p.id }, { $set: p }, { upsert: true });
+    // v5: small wallet top-ups so pay-per-scan (₹10) users can recharge from ₹10 (= 1 scan)
+    await Setting.updateOne({ key: "global" }, { $set: { "value.topupOptions": DEFAULT_SETTINGS.topupOptions, "value.topupMin": DEFAULT_SETTINGS.topupMin } }, { upsert: true });
     await Setting.updateOne({ key: "defaults_version" }, { value: DEFAULTS_VERSION }, { upsert: true });
   }
   plans = new Map((await Plan.find()).map((d) => [d.id, plain(d)]));
@@ -64,7 +67,7 @@ export const allPlans = () => [...plans.values()].sort((a, b) => a.order - b.ord
 export const withGstPaise = (rupees) => Math.round(rupees * (100 + settings.gstPercent));         // ₹ -> paise incl. GST
 export const gstOfPaise = (basePaise) => Math.round((basePaise * settings.gstPercent) / 100);
 /** Wallet charge for ONE overage scan, in paise incl. GST. */
-export const overageUnitPaise = (plan) => (plan.overageInr == null ? null : withGstPaise(plan.overageInr));
+export const overageUnitPaise = (plan) => (plan.overageInr == null ? null : plan.overageInclGst ? Math.round(plan.overageInr * 100) : withGstPaise(plan.overageInr));
 
 const inr = (n) => `₹${Number(n).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
@@ -73,8 +76,13 @@ export function describe(p) {
   const n = (v) => v.toLocaleString("en-IN");
   const f = [];
   if (p.monthlyCredits == null && p.dailyCredits == null) f.push("Custom scan volume");
-  else f.push(p.monthlyCredits == null ? "No monthly cap" : `${n(p.monthlyCredits)} scans/month`);
-  if (p.overageInr != null && p.monthlyCredits != null) f.push(`Overage: ${inr(p.overageInr)} + GST/scan`);
+  else if (p.monthlyCredits === 0 && p.overageInr != null) {
+    f.push(p.freeScans ? `First ${p.freeScans === 1 ? "scan" : `${p.freeScans} scans`} free` : "Pay as you go");
+    f.push(`${inr(p.overageInr)}/scan${p.overageInclGst ? "" : " + GST"} from your wallet`);
+  } else {
+    f.push(p.monthlyCredits == null ? "No monthly cap" : `${n(p.monthlyCredits)} scans/month`);
+    if (p.overageInr != null && p.monthlyCredits != null) f.push(`Overage: ${inr(p.overageInr)}${p.overageInclGst ? "" : " + GST"}/scan`);
+  }
   f.push(`${p.metrics.length} skin parameters`);
   const lim = [`${n(p.rpm)} requests/minute`];
   if (p.dailyCredits != null) lim.push(`${n(p.dailyCredits)}/day`);
@@ -85,7 +93,7 @@ export function describe(p) {
 export const publicPlan = (p) => ({
   ...p, features: describe(p), gstPercent: settings.gstPercent,
   priceWithGst: p.priceInr ? withGstPaise(p.priceInr) / 100 : p.priceInr,
-  overageWithGst: p.overageInr != null ? withGstPaise(p.overageInr) / 100 : null,
+  overageWithGst: p.overageInr != null ? overageUnitPaise(p) / 100 : null,
   parameters: p.metrics.length,
 });
 export const publicPlans = () => allPlans().filter((p) => p.active).map(publicPlan);

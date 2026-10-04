@@ -49,8 +49,8 @@ const FAQ = [
   ["Do you store the photos I send?", "No. Photos are processed in memory to produce the response and are not kept by the API. The overlay images are returned to you in the response."],
   ["How fast is it?", "Scores alone typically return in well under a second. Adding the overlay images for every parameter takes a little longer, and you can switch them off with overlays=false."],
   ["What counts as a scan, and what if the photo is bad?", "One successful analysis is one scan. If the photo is rejected (no face, too dark, eyes closed) or something fails on our side, the request is free."],
-  ["What happens when my monthly scans run out?", "On paid plans you keep scanning at the overage rate, taken from a prepaid wallet you top up. The Free plan pauses until next month. Per-minute and per-day limits always apply."],
-  ["Can I try it before paying?", "Yes. The Free plan includes 150 scans a month, forever, with 4 skin parameters. No credit card needed."],
+  ["What happens when my monthly scans run out?", "On paid plans you keep scanning at the overage rate, taken from a prepaid wallet you top up. The Free plan is pay-per-scan: your first scan is free, then ₹10 each from the wallet. Per-minute and per-day limits always apply."],
+  ["Can I try it before paying?", "Yes. Your first scan is free, with 4 skin parameters and no credit card. After that it is ₹10 per scan from a prepaid wallet."],
 ];
 
 const SNIPPET = `{
@@ -87,7 +87,7 @@ export default function Landing() {
             <Link className="btn lg" to="/signup">Get your free API key</Link>
             <Link className="btn lg ghost" to="/docs">Read the docs →</Link>
           </div>
-          <ul className="h2-points"><li>150 free scans / month</li><li>No credit card</li><li>API key in 30 seconds</li></ul>
+          <ul className="h2-points"><li>First scan free, then ₹10/scan</li><li>No credit card</li><li>API key in 30 seconds</li></ul>
         </div>
         <div className="wrap"><HeroShowcase /></div>
       </section>
@@ -100,7 +100,7 @@ export default function Landing() {
         <Reveal className="sbox"><b><small className="upto">Up to</small> <CountUp to={15} /></b><span>skin parameters per scan</span></Reveal>
         <Reveal delay={80} className="sbox"><b>&lt;<CountUp to={1} suffix="s" /></b><span>scores-only response time</span></Reveal>
         <Reveal delay={160} className="sbox"><b><CountUp to={1} /></b><span>REST call to integrate</span></Reveal>
-        <Reveal delay={240} className="sbox"><b><CountUp to={150} /></b><span>free scans every month</span></Reveal>
+        <Reveal delay={240} className="sbox"><b>₹<CountUp to={10} /></b><span>per scan after your free first</span></Reveal>
       </section>
 
       {/* ================= features ================= */}

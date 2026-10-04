@@ -7,7 +7,7 @@ import { SALES_EMAIL } from "../brand";
 const FAQ = [
   ["What counts as a scan?", "One successful analysis = 1 scan = 1 request. A scan with the AI second opinion counts as 2. Photos rejected for quality (too dark, no face, eyes closed…) and engine errors are never counted."],
   ["What are the rate limits?", "Every plan has requests per minute, per day and per month limits. Over a limit, the API answers HTTP 429 (per minute or per day) or 402 (monthly)."],
-  ["What happens after my monthly scans run out?", "On paid plans you can keep scanning at the overage rate, plus 18% GST, taken from a prepaid wallet you top up in the dashboard. Daily limits still apply. The Free plan stops until next month."],
+  ["What happens after my monthly scans run out?", "On paid plans you can keep scanning at the overage rate, plus 18% GST, taken from a prepaid wallet you top up in the dashboard. Daily limits still apply. The Free plan has no monthly allowance: your first scan is free, then ₹10 per scan from the wallet."],
   ["Is GST included?", "Prices are shown without GST. 18% GST is added at checkout and shown on your payment receipt."],
   ["Can I change plans?", "Yes. Start a higher plan any time from your dashboard; it starts immediately and lasts 30 days."],
   ["Do you offer white-label or custom volume?", "Yes. Contact sales and tell us what you need."],

@@ -92,20 +92,22 @@ export default function Billing() {
       <div className="card wallet-card">
         <div className="hist-head">
           <div>
-            <h3>Overage wallet</h3>
+            <h3>{user.plan === "free" ? "Scan credits" : "Overage wallet"}</h3>
             <p className="muted small" style={{ margin: 0 }}>
               {wallet?.ratePerScan != null
-                ? <>When your monthly scans run out, extra scans keep working at <b>₹{rate} each</b> (incl. {gst}% GST), taken from this prepaid balance. Daily limits still apply.</>
+                ? (user.plan === "free"
+                  ? <>Your first scan is free. After that <b>₹{rate} = 1 scan credit</b> (GST included). Recharge any amount, e.g. ₹{rate} gives 1 scan, ₹{rate * 5} gives 5 scans.</>
+                  : <>When your monthly scans run out, extra scans keep working at <b>₹{rate} each</b> (incl. {gst}% GST), taken from this prepaid balance. Daily limits still apply.</>)
                 : <>Overage scans aren't available on your current plan. Upgrade to a paid plan to keep scanning past your monthly allowance.</>}
             </p>
           </div>
-          <div className="wallet-bal"><span className="muted small">Balance</span><b>{inr(wallet?.balance ?? 0)}</b></div>
+          <div className="wallet-bal"><span className="muted small">{user.plan === "free" && rate ? "Scan credits" : "Balance"}</span><b>{user.plan === "free" && rate ? `${Math.floor((wallet?.balance ?? 0) / rate)} scans` : inr(wallet?.balance ?? 0)}</b>{user.plan === "free" && rate ? <span className="muted small">{inr(wallet?.balance ?? 0)}</span> : null}</div>
         </div>
         {wallet?.ratePerScan != null && (
           <div className="topups">
             {topup.options.map((a) => (
               <button key={a} className="btn ghost" disabled={!!busy || needPhone} onClick={() => pay(`t${a}`, "/billing/topup", { amount: a }, `₹${a} wallet top-up`)}>
-                {busy === `t${a}` ? "Please wait…" : `+ ${inr(a)}`}<small>{Math.floor(a / rate).toLocaleString("en-IN")} scans</small></button>
+                {busy === `t${a}` ? "Please wait…" : `Recharge ${inr(a)}`}<small>{Math.floor(a / rate).toLocaleString("en-IN")} scan{Math.floor(a / rate) === 1 ? "" : "s"}</small></button>
             ))}
             <span className="custom-top"><input type="number" min={topup.min} placeholder={`Other (min ₹${topup.min})`} value={custom} onChange={(e) => setCustom(e.target.value)} />
               <button className="btn" disabled={!!busy || needPhone || Number(custom) < topup.min} onClick={() => pay("tc", "/billing/topup", { amount: Number(custom) }, `₹${custom} wallet top-up`)}>Add</button></span>

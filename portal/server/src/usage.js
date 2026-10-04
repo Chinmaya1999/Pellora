@@ -47,6 +47,14 @@ export async function consume(userId, plan, cost) {
   const m = await Usage.findOneAndUpdate(mFilter, { $inc: { count: cost } }, { new: true });
   if (m) return { ok: true, day: d.count, month: m.count };
 
+  // One-time free scan(s) per account (e.g. Free plan: first scan free)
+  if (plan.freeScans && cost === 1) {
+    const f = await User.findOneAndUpdate({ _id: userId, freeScansUsed: { $lt: plan.freeScans } }, { $inc: { freeScansUsed: 1 } }, { new: true });
+    if (f) {
+      const m2 = await Usage.findOneAndUpdate({ user: userId, period }, { $inc: { count: cost } }, { new: true });
+      return { ok: true, day: d.count, month: m2.count, free: true };
+    }
+  }
   const unit = overageUnitPaise(plan);
   if (unit != null && plan.monthlyCredits != null) {
     const charge = unit * cost;
@@ -63,11 +71,12 @@ export async function consume(userId, plan, cost) {
 }
 
 /** Give scans (and any wallet charge) back - failed scans (bad photo, engine error) are free. */
-export async function refund(userId, cost, charged = 0, when = new Date()) {
+export async function refund(userId, cost, charged = 0, when = new Date(), free = false) {
   await Promise.all([
     Daily.updateOne({ user: userId, day: dayOf(when), count: { $gte: cost } }, { $inc: { count: -cost } }),
     Usage.updateOne({ user: userId, period: periodOf(when), count: { $gte: cost } }, { $inc: { count: -cost } }),
     charged ? User.updateOne({ _id: userId }, { $inc: { walletPaise: charged } }) : null,
+    free ? User.updateOne({ _id: userId, freeScansUsed: { $gte: 1 } }, { $inc: { freeScansUsed: -1 } }) : null,
   ]);
 }
 

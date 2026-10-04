@@ -259,7 +259,8 @@ function planFields(b, creating) {
   if (b.rpm !== undefined) f.rpm = int(b.rpm, 1) ?? 10;
   if (b.overageInr !== undefined) f.overageInr = b.overageInr === null || b.overageInr === "" ? null : Math.max(0, Number(b.overageInr)) || null;
   if (b.metrics !== undefined) f.metrics = (Array.isArray(b.metrics) ? b.metrics : []).filter((k) => METRIC_KEYS.includes(k));
-  for (const k of ["ai", "popular", "contact", "active"]) if (b[k] !== undefined) f[k] = !!b[k];
+  if (b.freeScans !== undefined) f.freeScans = int(b.freeScans, 0) ?? 0;
+  for (const k of ["ai", "popular", "contact", "active", "overageInclGst"]) if (b[k] !== undefined) f[k] = !!b[k];
   if (b.order !== undefined) f.order = int(b.order) ?? 100;
   if (b.extraFeatures !== undefined) f.extraFeatures = (Array.isArray(b.extraFeatures) ? b.extraFeatures : String(b.extraFeatures).split("\n")).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
   if (creating && !f.name) throw Object.assign(new Error("Plan name is required."), { status: 400 });

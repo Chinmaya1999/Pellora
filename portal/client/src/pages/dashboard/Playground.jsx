@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { voice } from "../../lib/voice";
@@ -247,7 +248,7 @@ export default function Playground() {
   return (
     <>
       <h1>Playground</h1>
-      <p className="muted">Try the API with your camera. Each scan uses 1 of your daily and monthly scans ({user.planName} plan). See what's left on the Overview page.</p>
+      <p className="muted">{user.plan === "free" ? <>Try the API with your camera. Your first scan is free; after that each scan costs ₹10 from your wallet. <Link to="/dashboard/billing">Recharge</Link></> : <>Try the API with your camera. Each scan uses 1 of your daily and monthly scans ({user.planName} plan). See what's left on the Overview page.</>}</p>
       <div className="pg">
         <div className="card pg-cam">
           <div className="modesw" role="tablist" aria-label="Photo source">

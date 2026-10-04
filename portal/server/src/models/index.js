@@ -13,6 +13,7 @@ const userSchema = new Schema({
   disabled: { type: Boolean, default: false },
   lastLoginAt: { type: Date, default: null },
   walletPaise: { type: Number, default: 0 },        // prepaid balance for overage scans (incl. GST)
+  freeScansUsed: { type: Number, default: 0 },      // lifetime free scans already taken (see Plan.freeScans)
 }, { timestamps: true });
 
 const apiKeySchema = new Schema({
@@ -64,6 +65,8 @@ const planSchema = new Schema({
   monthlyCredits: { type: Number, default: null },
   rpm: { type: Number, default: 10 },
   overageInr: { type: Number, default: null },      // extra scans beyond the monthly allowance, ₹ per scan excl. GST (null = not allowed)
+  overageInclGst: { type: Boolean, default: false }, // overageInr is the final price (GST already included)
+  freeScans: { type: Number, default: 0 },          // one-time free scans per account before charging
   metrics: { type: [String], default: [] },         // skin parameters returned (empty = all)
   ai: { type: Boolean, default: false },
   blurb: { type: String, default: "", maxlength: 160 },

@@ -67,6 +67,8 @@ r.get("/usage", requireAuth, async (req, res) => {
   const used = await usedNow(req.user._id);
   res.json({
     plan: plan.id, planName: plan.name, costs: creditCost(), rpm: plan.rpm, parameters: plan.metrics.length, ai: plan.ai,
+    freeScansLeft: plan.freeScans ? Math.max(0, plan.freeScans - (req.user.freeScansUsed || 0)) : 0,
+    payg: plan.monthlyCredits === 0 && overageUnitPaise(plan) != null,
     wallet: { balance: (req.user.walletPaise || 0) / 100, ratePerScan: overageUnitPaise(plan) == null ? null : overageUnitPaise(plan) / 100, enabled: overageUnitPaise(plan) != null },
     day: { used: used.day, limit: plan.dailyCredits, remaining: left(plan.dailyCredits, used.day), resetsAt: nextDayReset() },
     month: { used: used.month, limit: plan.monthlyCredits, remaining: left(plan.monthlyCredits, used.month), resetsAt: nextMonthReset() },

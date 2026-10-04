@@ -42,7 +42,10 @@ export default function Overview() {
         <Meter title="Scans this month" w={u.month} />
       </div>
       {u.day.remaining === 0 && <p className="err">You've used today's scans. They reset at midnight (IST), or <Link to="/dashboard/billing">upgrade for more</Link>.</p>}
-      {u.month.remaining === 0 && (u.wallet.enabled
+      {u.payg && <p className="notice card small">{u.freeScansLeft > 0
+        ? <>You have <b>{u.freeScansLeft} free scan</b> left. After that each scan costs <b>₹{u.wallet.ratePerScan}</b> from your wallet. <Link to="/dashboard/billing">Recharge →</Link></>
+        : <>You have <b>{Math.floor(u.wallet.balance / u.wallet.ratePerScan)} scan credits</b> (₹{u.wallet.ratePerScan} per scan). <Link to="/dashboard/billing">Recharge →</Link></>}</p>}
+      {!u.payg && u.month.remaining === 0 && (u.wallet.enabled
         ? <p className="err">Monthly scans used up. Extra scans cost ₹{u.wallet.ratePerScan} each (incl. GST) from your wallet (₹{u.wallet.balance.toLocaleString('en-IN')}). <Link to="/dashboard/billing">Top up wallet →</Link></p>
         : <p className="err">Monthly scans used up. <Link to="/dashboard/billing">Upgrade to continue.</Link></p>)}
       <div className="limits">
