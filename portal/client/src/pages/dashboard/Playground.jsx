@@ -3,13 +3,16 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useAuth } from "../../auth";
 import { voice } from "../../lib/voice";
+import { downloadReport } from "../../lib/report";
 
 const tone = (s) => (s >= 80 ? "good" : s >= 55 ? "mild" : s >= 30 ? "mod" : "sev");
 
 const RATING_TONE = { Excellent: "good", Good: "good", Fair: "mod", Poor: "sev" };
 const img64 = (m) => `data:image/jpeg;base64,${m.overlay_jpeg_base64}`;
 
-function Report({ d }) {
+function Report({ d, shot, name }) {
+  const [dl, setDl] = useState(false);
+  const download = async () => { setDl(true); try { await downloadReport(d, { photoUrl: shot?.url, mirror: shot?.mirror, name }); } catch { alert("Could not create the report. Please try again."); } setDl(false); };
   const list = Object.values(d.metrics);
   const [sel, setSel] = useState(list[0].key);
   const [show, setShow] = useState(true);
@@ -17,6 +20,9 @@ function Report({ d }) {
   const issues = d.quality.issues.length ? `Photo issues: ${d.quality.issues.join(", ").replaceAll("_", " ")}` : "Photo quality good";
   return (
     <div className="report-full">
+      <div className="row" style={{ justifyContent: "flex-end", marginBottom: 12 }}>
+        <button className="btn" onClick={download} disabled={dl}>{dl ? "Preparing PDF…" : "⬇ Download report (PDF)"}</button>
+      </div>
       <div className="stat4">
         <div className="card stat"><span className="muted small">OVERALL SCORE</span><b>{d.overall_score}</b><span className="muted small">Composite of {list.length} measurements</span></div>
         <div className="card stat"><span className="muted small">PHOTO QUALITY</span><b>{d.quality.score}</b><span className="muted small">{issues}</span></div>
@@ -345,7 +351,7 @@ export default function Playground() {
         <div className="card pg-res">
           {busy ? <div className="empty">Analyzing your photo…</div>
             : err && !uploading ? <div className="empty"><p className="err">{err}</p><p className="muted small">Press the reload icon to try again.</p></div>
-            : out ? <Report d={out} />
+            : out ? <Report d={out} shot={shot} name={user.name} />
             : <div className="empty">Your skin analysis will appear here.</div>}
         </div>
       </div>
