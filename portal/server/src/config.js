@@ -20,10 +20,16 @@ export const config = {
   // Cashfree Payment Gateway (https://merchant.cashfree.com). CASHFREE_ENV: "sandbox" (test keys) or "production" (live keys)
   cashfreeAppId: env.CASHFREE_APP_ID || "",
   cashfreeSecret: env.CASHFREE_SECRET_KEY || "",
-  cashfreeEnv: env.CASHFREE_ENV === "production" ? "production" : "sandbox",
+  // Live keys (cfsk_ma_prod_...) only work against the production API and test keys against the sandbox,
+  // so trust the key itself over CASHFREE_ENV, which is easy to leave at its "sandbox" default.
+  cashfreeEnv: /^cfsk_ma_prod/.test(env.CASHFREE_SECRET_KEY || "") ? "production"
+    : /^cfsk_ma_test/.test(env.CASHFREE_SECRET_KEY || "") ? "sandbox"
+    : env.CASHFREE_ENV === "production" ? "production" : "sandbox",
   publicUrl: (env.PUBLIC_URL || "http://localhost:5173").replace(/\/$/, ""),
   apiPublicUrl: (env.API_PUBLIC_URL || "").replace(/\/$/, ""),
   brand: env.BRAND_NAME || "Pellora",
 };
 
+// Free test checkout (credits without paying) only when explicitly enabled and never in production.
+export const devCheckoutAllowed = !isProd && env.ALLOW_DEV_CHECKOUT === "1";
 export const paymentsEnabled = Boolean(config.cashfreeAppId && config.cashfreeSecret);

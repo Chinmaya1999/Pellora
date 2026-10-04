@@ -101,7 +101,7 @@ export default function Billing() {
                 : <>Overage scans aren't available on your current plan. Upgrade to a paid plan to keep scanning past your monthly allowance.</>}
             </p>
           </div>
-          <div className="wallet-bal"><span className="muted small">{user.plan === "free" && rate ? "Scan credits" : "Balance"}</span><b>{user.plan === "free" && rate ? `${Math.floor((wallet?.balance ?? 0) / rate)} scans` : inr(wallet?.balance ?? 0)}</b>{user.plan === "free" && rate ? <span className="muted small">{inr(wallet?.balance ?? 0)}</span> : null}</div>
+          <div className="wallet-bal"><span className="muted small">{user.plan === "free" && rate ? "Scan credits" : "Balance"}</span><b>{user.plan === "free" && rate ? `${Math.floor((wallet?.balance ?? 0) / rate)} scan${Math.floor((wallet?.balance ?? 0) / rate) === 1 ? "" : "s"}` : inr(wallet?.balance ?? 0)}</b>{user.plan === "free" && rate ? <span className="muted small">{inr(wallet?.balance ?? 0)}</span> : null}</div>
         </div>
         {wallet?.ratePerScan != null && (
           <div className="topups">

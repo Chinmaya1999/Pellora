@@ -1,6 +1,6 @@
 import { Router } from "express";
 import crypto from "crypto";
-import { config, paymentsEnabled } from "../config.js";
+import { config, paymentsEnabled, devCheckoutAllowed } from "../config.js";
 import { getPlan, planDays, publicPlans, withGstPaise, gstOfPaise, getSettings, gstPercent, overageUnitPaise } from "../plans.js";
 import { User, Payment } from "../models/index.js";
 import { requireAuth } from "../middleware/auth.js";
@@ -70,13 +70,13 @@ export async function settle(orderId) {
 r.get("/plans", (req, res) => res.json({
   plans: publicPlans(), provider: "cashfree", mode: config.cashfreeEnv, gstPercent: gstPercent(),
   topup: { options: getSettings().topupOptions, min: getSettings().topupMin },
-  devCheckout: !paymentsEnabled && !config.isProd, paymentsEnabled, brand: config.brand,
+  devCheckout: !paymentsEnabled && devCheckoutAllowed, paymentsEnabled, brand: config.brand,
 }));
 
 /** Create the Cashfree order for either a plan purchase or a wallet top-up. */
 async function createOrder(req, res, { kind, plan, totalPaise, basePaise, gstPaise, label }) {
   if (!paymentsEnabled) { // development without Cashfree keys
-    if (config.isProd) return res.status(503).json({ message: "Payments are not configured." });
+    if (!devCheckoutAllowed) return res.status(503).json({ message: "Online payments are not set up yet (Cashfree keys missing). Please try again later." });
     const orderId = `dev_${crypto.randomUUID()}`;
     await Payment.create({ user: req.user._id, plan: plan?.id, kind, amountPaise: totalPaise, basePaise, gstPaise, orderId, mock: true });
     return res.json({ mock: true, orderId, plan: plan?.id, kind });
@@ -124,7 +124,7 @@ r.post("/verify", requireAuth, async (req, res) => {
 
 // Dev only: activate without paying (disabled once Cashfree keys exist or in production)
 r.post("/dev-activate", requireAuth, async (req, res) => {
-  if (paymentsEnabled || config.isProd) return res.status(404).json({ message: "Not found." });
+  if (paymentsEnabled || !devCheckoutAllowed) return res.status(404).json({ message: "Not found." });
   const ok = await Payment.exists({ orderId: req.body?.orderId, user: req.user._id });
   if (!ok) return res.status(404).json({ message: "Order not found." });
   await fulfil(req.body.orderId, `dev_pay_${Date.now()}`);
